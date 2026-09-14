@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Frame Canvas Studio",
-  description: "Turn real website screenshots into polished, framed portfolio images.",
+  title: "Portfolio Frame Canvas Studio",
+  description: "Create responsive device mockups from real website screenshots.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

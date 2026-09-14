@@ -1,6 +1,6 @@
-# Frame Canvas Studio
+# Portfolio Frame Canvas Studio
 
-Turn real website screenshots into polished, framed portfolio images — no
+Create responsive device mockups from real website screenshots — no
 account, no cloud, no database. Everything runs locally.
 
 Capture a site's desktop, tablet, and mobile views with a real browser, crop
@@ -42,7 +42,7 @@ Requires Node.js 20+.
 
 ```bash
 git clone <this-repo>
-cd frame-canvas-studio
+cd portfolio-frame-canvas-studio
 npm install
 npx playwright install chromium   # one-time browser download for capture/export
 npm run dev
