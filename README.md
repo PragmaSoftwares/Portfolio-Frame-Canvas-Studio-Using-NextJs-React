@@ -92,8 +92,8 @@ This is a personal/small-team tool, not a general-purpose design app:
 
 - No text, title, or caption layer on the canvas — it's screenshots and
   frames only.
-- No batch export or an Upwork-specific (1000×750) export size yet — only
-  the 2000×1500 master size, exported one board at a time.
+- No batch export or a smaller (1000×750) export size yet — only the
+  2000×1500 master size, exported one board at a time.
 - No automatic page discovery — pages are added manually.
 - No logo file upload (a path/URL field only).
 - Cookie/promo popups on captured pages are dismissed on a best-effort
