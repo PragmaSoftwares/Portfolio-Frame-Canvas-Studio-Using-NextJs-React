@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frame Canvas Studio
 
-## Getting Started
+Turn real website screenshots into polished, framed portfolio images — no
+account, no cloud, no database. Everything runs locally.
 
-First, run the development server:
+Capture a site's desktop, tablet, and mobile views with a real browser, crop
+out the sections worth showing, then drag them onto a free-form canvas where
+each screenshot is automatically framed in a realistic device mockup
+(desktop monitor, laptop, tablet, or phone). Arrange, resize, and layer them
+by hand, then export a crisp PNG — as many times, in as many different
+arrangements, as you want.
+
+## Features
+
+- **Real browser capture** — desktop (1440×1000), tablet (768×1024), and
+  mobile (390×844) screenshots via [Playwright](https://playwright.dev),
+  both the visible viewport and the full scrollable page.
+- **Crop editor** — drag out exactly the section of a page you want to show;
+  crop as many sections as you like from any page, any device. The original
+  capture is never modified.
+- **Free-form canvas** — drag cropped screenshots onto a canvas, position
+  and resize them with the mouse or arrow keys, layer them, and pick a
+  device frame per item (or no frame at all).
+- **Realistic device frames** — desktop, laptop, tablet, and phone mockups,
+  not a flat CSS rectangle.
+- **Custom backgrounds** — a dark or light gradient out of the box, or
+  upload your own background image (cover / repeat / stretch fit). Uploaded
+  backgrounds are saved to a shared library so you can reuse the same one
+  across multiple projects without re-uploading.
+- **Multiple boards per project** — build as many different compositions as
+  you want from the same set of cropped screenshots, and export each one
+  independently, any number of times.
+- **Multi-page, multi-project** — capture up to five additional pages per
+  project (beyond the homepage), and manage any number of separate projects
+  from one dashboard.
+- **100% local-first** — every project, screenshot, and export is a plain
+  file on disk (`data/`, gitignored). No sign-in, no external services.
+
+## Getting started
+
+Requires Node.js 20+.
 
 ```bash
+git clone <this-repo>
+cd frame-canvas-studio
+npm install
+npx playwright install chromium   # one-time browser download for capture/export
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How it works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```text
+New project → enter a name and URL
+  → Capture all pages (desktop/tablet/mobile screenshots)
+  → Review screenshots → crop out the sections you want
+  → Proceed to Canvas → drag screenshots onto the canvas,
+    arrange/resize/frame them
+  → Export PNG
+```
 
-## Learn More
+Create as many boards per project as you like, and export any of them as
+many times as you like — nothing is consumed or locked after exporting.
 
-To learn more about Next.js, take a look at the following resources:
+## Tech stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [Next.js](https://nextjs.org) (App Router) + TypeScript
+- [Tailwind CSS](https://tailwindcss.com)
+- [Playwright](https://playwright.dev) for capture and export
+- [react-image-crop](https://www.npmjs.com/package/react-image-crop) for the crop tool
+- [react-rnd](https://www.npmjs.com/package/react-rnd) for the canvas editor
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project structure
 
-## Deploy on Vercel
+```text
+src/
+  app/            Next.js routes (pages + API routes)
+  components/     React components (board rendering, canvas editor, forms)
+  lib/            Capture, storage, and export logic
+  types/          Shared TypeScript types
+public/frames/    Device frame images used by the canvas
+data/             Local project data (gitignored — created at runtime)
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Playwright always runs in the Node.js runtime, never the Edge runtime.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Known limitations
+
+This is a personal/small-team tool, not a general-purpose design app:
+
+- No text, title, or caption layer on the canvas — it's screenshots and
+  frames only.
+- No batch export or an Upwork-specific (1000×750) export size yet — only
+  the 2000×1500 master size, exported one board at a time.
+- No automatic page discovery — pages are added manually.
+- No logo file upload (a path/URL field only).
+- Cookie/promo popups on captured pages are dismissed on a best-effort
+  basis, not guaranteed.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

@@ -1,0 +1,585 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { nanoid } from "nanoid";
+import { Rnd } from "react-rnd";
+import { DeviceFrame } from "@/components/board/DeviceFrame";
+import { PlainFrame } from "@/components/board/PlainFrame";
+import { backgroundStyleFor } from "@/components/board/BoardCanvas";
+import { DEFAULT_CROP } from "@/types/review";
+import { defaultFrameWidth, frameOuterHeight, defaultFrameForDevice } from "@/lib/board/frameSize";
+import type { Board, BackgroundFit, BoardBackground, CanvasItem, FrameVariant } from "@/types/board";
+import type { BackgroundImage } from "@/types/backgroundImage";
+import type { SelectionWithPage } from "@/lib/storage/review";
+
+interface CanvasEditorProps {
+  projectId: string;
+  projectName: string;
+  board: Board;
+  selections: SelectionWithPage[];
+  backgroundImages: BackgroundImage[];
+}
+
+const EDITOR_SCALE = 0.36;
+const FRAME_OPTIONS: FrameVariant[] = ["desktop", "laptop", "tablet", "mobile", "none"];
+const BACKGROUND_FIT_OPTIONS: { value: BackgroundFit; label: string }[] = [
+  { value: "cover", label: "Cover" },
+  { value: "repeat", label: "Repeat" },
+  { value: "stretch", label: "Stretch" },
+];
+
+function mediaSrc(projectId: string, filename: string): string {
+  return `/api/media/projects/${projectId}/captures/selections/${filename}`;
+}
+
+function backgroundImageSrc(filename: string): string {
+  return `/api/media/backgrounds/${filename}`;
+}
+
+/** Reads a File's natural pixel dimensions client-side, without uploading it first. */
+function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read that image."));
+    };
+    img.src = url;
+  });
+}
+
+export function CanvasEditor({
+  projectId,
+  projectName,
+  board: initialBoard,
+  selections,
+  backgroundImages: initialBackgroundImages,
+}: CanvasEditorProps) {
+  const [name, setName] = useState(initialBoard.name);
+  const [background, setBackground] = useState<BoardBackground>(initialBoard.background);
+  const [backgroundImageId, setBackgroundImageId] = useState<string | undefined>(initialBoard.backgroundImageId);
+  const [backgroundFit, setBackgroundFit] = useState<BackgroundFit>(initialBoard.backgroundFit ?? "cover");
+  const [backgroundImages, setBackgroundImages] = useState<BackgroundImage[]>(initialBackgroundImages);
+  const [uploadingBackground, setUploadingBackground] = useState(false);
+  const [items, setItems] = useState<CanvasItem[]>(initialBoard.items);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [exportUrl, setExportUrl] = useState<string | null>(null);
+  const [exportPhase, setExportPhase] = useState<"idle" | "exporting" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  const editorWidth = initialBoard.canvasWidth * EDITOR_SCALE;
+  const editorHeight = initialBoard.canvasHeight * EDITOR_SCALE;
+  const selectionById = new Map(selections.map((s) => [s.id, s]));
+  const selectedBackgroundImage = backgroundImageId ? backgroundImages.find((img) => img.id === backgroundImageId) : null;
+
+  function markDirty() {
+    setDirty(true);
+    setExportUrl(null);
+  }
+
+  function addItem(selection: SelectionWithPage, dropX: number, dropY: number) {
+    const frame = defaultFrameForDevice(selection.sourceDevice);
+    const width = defaultFrameWidth(frame);
+    const height = frameOuterHeight(frame, width);
+    const nextZ = items.length === 0 ? 1 : Math.max(...items.map((i) => i.zIndex)) + 1;
+    const item: CanvasItem = {
+      id: nanoid(12),
+      pageSlug: selection.pageSlug,
+      selectionId: selection.id,
+      x: Math.max(0, Math.round(dropX - width / 2)),
+      y: Math.max(0, Math.round(dropY - height / 2)),
+      width,
+      height,
+      zIndex: nextZ,
+      frame,
+    };
+    setItems((prev) => [...prev, item]);
+    setSelectedId(item.id);
+    markDirty();
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const raw = e.dataTransfer.getData("application/json");
+    if (!raw) return;
+    let payload: { selectionId: string };
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    const selection = selectionById.get(payload.selectionId);
+    if (!selection || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const dropX = (e.clientX - rect.left) / EDITOR_SCALE;
+    const dropY = (e.clientY - rect.top) / EDITOR_SCALE;
+    addItem(selection, dropX, dropY);
+  }
+
+  function updateItem(id: string, patch: Partial<CanvasItem>) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+    markDirty();
+  }
+
+  function removeItem(id: string) {
+    setItems((prev) => prev.filter((it) => it.id !== id));
+    if (selectedId === id) setSelectedId(null);
+    markDirty();
+  }
+
+  function bringToFront(id: string) {
+    const maxZ = items.length === 0 ? 0 : Math.max(...items.map((i) => i.zIndex));
+    updateItem(id, { zIndex: maxZ + 1 });
+  }
+
+  function sendToBack(id: string) {
+    const minZ = items.length === 0 ? 0 : Math.min(...items.map((i) => i.zIndex));
+    updateItem(id, { zIndex: minZ - 1 });
+  }
+
+  function changeFrame(id: string, frame: FrameVariant) {
+    const item = items.find((it) => it.id === id);
+    if (!item) return;
+    const height = frame === "none" ? item.height : frameOuterHeight(frame, item.width);
+    updateItem(id, { frame, height });
+  }
+
+  function selectImageBackground(imageId: string) {
+    setBackground("image");
+    setBackgroundImageId(imageId);
+    markDirty();
+  }
+
+  async function handleUploadBackground(file: File) {
+    setUploadingBackground(true);
+    setError(null);
+    try {
+      const { width, height } = await readImageDimensions(file);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("width", String(width));
+      formData.append("height", String(height));
+      formData.append("name", file.name);
+      const res = await fetch("/api/backgrounds", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not upload that image.");
+      setBackgroundImages((prev) => [data.image as BackgroundImage, ...prev]);
+      selectImageBackground(data.image.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not upload that image.");
+    } finally {
+      setUploadingBackground(false);
+    }
+  }
+
+  async function handleDeleteBackgroundImage(imageId: string) {
+    if (!window.confirm("Remove this background image from the library? This can't be undone.")) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/backgrounds/${imageId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not remove that image.");
+      setBackgroundImages((prev) => prev.filter((img) => img.id !== imageId));
+      if (backgroundImageId === imageId) {
+        setBackground("dark");
+        setBackgroundImageId(undefined);
+        markDirty();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove that image.");
+    }
+  }
+
+  // Arrow-key nudging for the selected item — a precise alternative to mouse
+  // dragging (1 screen-px per press, ~10 screen-px with Shift, converted to
+  // native/export pixel units). Skipped while typing in a text field so it
+  // doesn't fight the board-name input or anything else.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!selectedId) return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+
+      const activeTag = document.activeElement?.tagName;
+      if (activeTag === "INPUT" || activeTag === "TEXTAREA" || activeTag === "SELECT") return;
+
+      e.preventDefault();
+      const step = Math.max(1, Math.round((e.shiftKey ? 10 : 1) / EDITOR_SCALE));
+      const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+      const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+
+      setItems((prev) => prev.map((it) => (it.id === selectedId ? { ...it, x: Math.max(0, it.x + dx), y: Math.max(0, it.y + dy) } : it)));
+      setDirty(true);
+      setExportUrl(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedId]);
+
+  async function handleSave(): Promise<boolean> {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/boards/${initialBoard.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          background,
+          backgroundImageId: background === "image" ? (backgroundImageId ?? null) : null,
+          backgroundFit: background === "image" ? backgroundFit : "cover",
+          items,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not save the board.");
+      setDirty(false);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the board.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleExport() {
+    setExportPhase("exporting");
+    setError(null);
+    const saved = await handleSave();
+    if (!saved) {
+      setExportPhase("error");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/projects/${projectId}/boards/${initialBoard.id}/export`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Export failed.");
+      setExportUrl(data.url);
+      setExportPhase("idle");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed.");
+      setExportPhase("error");
+    }
+  }
+
+  const selectedItem = items.find((it) => it.id === selectedId) ?? null;
+  const canvasBackgroundImageUrl = selectedBackgroundImage ? backgroundImageSrc(selectedBackgroundImage.filename) : null;
+
+  return (
+    <div className="flex h-screen flex-col bg-slate-950 text-slate-100">
+      <header className="flex items-center justify-between gap-4 border-b border-slate-800 px-6 py-3">
+        <div className="flex items-center gap-4">
+          <Link href={`/projects/${projectId}`} className="text-xs text-slate-500 hover:text-slate-300">
+            ← {projectName}
+          </Link>
+          <input
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              markDirty();
+            }}
+            className="rounded border border-transparent bg-transparent px-2 py-1 text-lg font-semibold outline-none hover:border-slate-700 focus:border-indigo-500"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1">
+            <button
+              onClick={() => {
+                setBackground("dark");
+                markDirty();
+              }}
+              className={`rounded-lg border px-3 py-1.5 text-xs ${background === "dark" ? "border-indigo-500 text-indigo-300" : "border-slate-700 text-slate-400"}`}
+            >
+              Dark
+            </button>
+            <button
+              onClick={() => {
+                setBackground("light");
+                markDirty();
+              }}
+              className={`rounded-lg border px-3 py-1.5 text-xs ${background === "light" ? "border-indigo-500 text-indigo-300" : "border-slate-700 text-slate-400"}`}
+            >
+              Light
+            </button>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving || !dirty}
+            className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {saving ? "Saving…" : dirty ? "Save" : "Saved"}
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={exportPhase === "exporting" || items.length === 0}
+            className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {exportPhase === "exporting" ? "Exporting…" : `Export PNG (${initialBoard.canvasWidth}×${initialBoard.canvasHeight})`}
+          </button>
+          {exportUrl && (
+            <a href={exportUrl} target="_blank" rel="noreferrer" className="text-sm text-emerald-400 underline underline-offset-4">
+              Open PNG
+            </a>
+          )}
+        </div>
+      </header>
+
+      {error && (
+        <div className="border-b border-red-800 bg-red-950/50 px-6 py-2 text-sm text-red-300">{error}</div>
+      )}
+
+      <div className="flex items-center gap-3 overflow-x-auto border-b border-slate-800 bg-slate-900/40 px-6 py-2.5">
+        <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Background image
+        </span>
+        <div className="flex items-center gap-2">
+          {backgroundImages.map((img) => (
+            <div key={img.id} className="group relative shrink-0">
+              <button
+                onClick={() => selectImageBackground(img.id)}
+                title={img.originalName}
+                className={`block h-11 w-16 overflow-hidden rounded border-2 bg-slate-800 ${
+                  background === "image" && backgroundImageId === img.id
+                    ? "border-indigo-500"
+                    : "border-slate-700 hover:border-slate-500"
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={backgroundImageSrc(img.filename)}
+                  alt=""
+                  draggable={false}
+                  className="h-full w-full object-cover"
+                />
+              </button>
+              <button
+                onClick={() => handleDeleteBackgroundImage(img.id)}
+                title="Remove from library"
+                className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] leading-none text-white hover:bg-red-500 group-hover:flex"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+        <label
+          className={`shrink-0 cursor-pointer rounded-lg border border-slate-700 px-3 py-1.5 text-xs hover:border-slate-500 ${uploadingBackground ? "opacity-50" : ""}`}
+        >
+          {uploadingBackground ? "Uploading…" : "Upload image"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            disabled={uploadingBackground}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void handleUploadBackground(file);
+            }}
+          />
+        </label>
+        {background === "image" && (
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <span className="text-xs text-slate-400">Fit</span>
+            <select
+              value={backgroundFit}
+              onChange={(e) => {
+                setBackgroundFit(e.target.value as BackgroundFit);
+                markDirty();
+              }}
+              className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs outline-none focus:border-indigo-500"
+            >
+              {BACKGROUND_FIT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="w-72 shrink-0 overflow-y-auto border-r border-slate-800 p-4">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Cropped screenshots — drag onto the canvas
+          </h2>
+          {selections.length === 0 ? (
+            <p className="text-xs text-slate-500">
+              No cropped sections yet.{" "}
+              <Link href={`/projects/${projectId}/review`} className="text-indigo-400 hover:text-indigo-300">
+                Go crop some →
+              </Link>
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {selections.map((s) => {
+                const frame = defaultFrameForDevice(s.sourceDevice);
+                const thumbWidth = 110;
+                return (
+                  <div
+                    key={s.id}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("application/json", JSON.stringify({ selectionId: s.id }));
+                    }}
+                    className="cursor-grab space-y-1 rounded-lg border border-slate-800 p-2 hover:border-slate-600"
+                    title={`${s.pageLabel} — ${s.label}`}
+                  >
+                    <div style={{ position: "relative", height: frameOuterHeight(frame, thumbWidth) }}>
+                      {frame === "none" ? (
+                        <PlainFrame
+                          src={mediaSrc(projectId, s.filename)}
+                          crop={DEFAULT_CROP}
+                          width={thumbWidth}
+                          height={Math.round(thumbWidth * 0.75)}
+                          style={{ left: 0, top: 0 }}
+                        />
+                      ) : (
+                        <DeviceFrame
+                          variant={frame}
+                          src={mediaSrc(projectId, s.filename)}
+                          crop={DEFAULT_CROP}
+                          width={thumbWidth}
+                          style={{ left: 0, top: 0 }}
+                        />
+                      )}
+                    </div>
+                    <p className="truncate text-[11px] text-slate-400">{s.pageLabel}</p>
+                    <p className="truncate text-[11px] text-slate-500">{s.label}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </aside>
+
+        <main className="flex flex-1 items-center justify-center overflow-auto p-8">
+          <div
+            ref={canvasRef}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            onClick={(e) => {
+              if (e.target === canvasRef.current) setSelectedId(null);
+            }}
+            style={{
+              position: "relative",
+              width: editorWidth,
+              height: editorHeight,
+              ...backgroundStyleFor(
+                background,
+                canvasBackgroundImageUrl,
+                backgroundFit,
+                selectedBackgroundImage ? { width: selectedBackgroundImage.width, height: selectedBackgroundImage.height } : undefined,
+                EDITOR_SCALE
+              ),
+              boxShadow: "0 0 0 1px rgba(148,163,184,0.25), 0 30px 60px -20px rgba(0,0,0,0.6)",
+              overflow: "hidden",
+              flexShrink: 0,
+            }}
+          >
+            {items.length === 0 && (
+              <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+                Drag a screenshot here to get started
+              </p>
+            )}
+            {items.map((item) => (
+              <Rnd
+                key={item.id}
+                size={{ width: item.width * EDITOR_SCALE, height: item.height * EDITOR_SCALE }}
+                position={{ x: item.x * EDITOR_SCALE, y: item.y * EDITOR_SCALE }}
+                lockAspectRatio={item.frame !== "none"}
+                minWidth={40}
+                minHeight={40}
+                bounds="parent"
+                style={{ zIndex: item.zIndex, outline: selectedId === item.id ? "2px solid #6366f1" : "none" }}
+                onDragStart={() => setSelectedId(item.id)}
+                onDragStop={(_e, d) => updateItem(item.id, { x: Math.round(d.x / EDITOR_SCALE), y: Math.round(d.y / EDITOR_SCALE) })}
+                onResizeStop={(_e, _dir, ref, _delta, position) =>
+                  updateItem(item.id, {
+                    width: Math.round(ref.offsetWidth / EDITOR_SCALE),
+                    height: Math.round(ref.offsetHeight / EDITOR_SCALE),
+                    x: Math.round(position.x / EDITOR_SCALE),
+                    y: Math.round(position.y / EDITOR_SCALE),
+                  })
+                }
+                onClick={() => setSelectedId(item.id)}
+              >
+                <div style={{ width: "100%", height: "100%", overflow: "hidden" }}>
+                  <div style={{ transform: `scale(${EDITOR_SCALE})`, transformOrigin: "top left", width: item.width, height: item.height }}>
+                    {(() => {
+                      const selection = selectionById.get(item.selectionId);
+                      const src = selection ? mediaSrc(projectId, selection.filename) : null;
+                      if (item.frame === "none") {
+                        return <PlainFrame src={src} crop={DEFAULT_CROP} width={item.width} height={item.height} style={{ left: 0, top: 0 }} />;
+                      }
+                      return <DeviceFrame variant={item.frame} src={src} crop={DEFAULT_CROP} width={item.width} style={{ left: 0, top: 0 }} />;
+                    })()}
+                  </div>
+                </div>
+              </Rnd>
+            ))}
+          </div>
+        </main>
+
+        <aside className="w-64 shrink-0 space-y-4 overflow-y-auto border-l border-slate-800 p-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Selected item</h2>
+          {selectedItem ? (
+            <>
+              <p className="text-xs text-slate-500">
+                Use the arrow keys to nudge position (hold Shift for bigger steps) — handy if dragging feels
+                imprecise.
+              </p>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400">Frame</label>
+                <select
+                  value={selectedItem.frame}
+                  onChange={(e) => changeFrame(selectedItem.id, e.target.value as FrameVariant)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                >
+                  {FRAME_OPTIONS.map((f) => (
+                    <option key={f} value={f}>
+                      {f === "none" ? "No frame" : f[0].toUpperCase() + f.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => bringToFront(selectedItem.id)}
+                  className="flex-1 rounded-lg border border-slate-700 px-3 py-2 text-xs hover:border-slate-500"
+                >
+                  Bring to front
+                </button>
+                <button
+                  onClick={() => sendToBack(selectedItem.id)}
+                  className="flex-1 rounded-lg border border-slate-700 px-3 py-2 text-xs hover:border-slate-500"
+                >
+                  Send to back
+                </button>
+              </div>
+              <button
+                onClick={() => removeItem(selectedItem.id)}
+                className="w-full rounded-lg border border-red-800 px-3 py-2 text-xs text-red-400 hover:border-red-600"
+              >
+                Remove from canvas
+              </button>
+            </>
+          ) : (
+            <p className="text-xs text-slate-500">Click an item on the canvas to edit its frame and layering.</p>
+          )}
+        </aside>
+      </div>
+    </div>
+  );
+}

@@ -39,3 +39,22 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local capture/export data (screenshots, exported PNGs, metadata)
+/data/
+
+# internal-only dev docs and reference material — build log, the AI dev
+# guide, the original planning doc (has some stray voice-dictation noise),
+# third-party mockup/reference images with unclear redistribution rights,
+# and the raw device-frame source files (the copies the app actually uses
+# live in /public/frames/). None of this is meant for a public repo.
+/docs/
+
+# instructions for AI coding assistants (Claude Code / Codex-style agents) —
+# local dev tooling, not part of the shipped project
+AGENTS.md
+CLAUDE.md
+
+# Playwright MCP tool output (screenshots taken while testing with an AI
+# coding assistant) — local scratch, not project source
+/.playwright-mcp/
