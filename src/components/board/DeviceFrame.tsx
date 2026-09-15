@@ -146,25 +146,31 @@ export function DeviceFrame({ variant, src, width, crop = DEFAULT_SCREEN_CROP, c
   // never poke past the screen's real rounded curve (see FRAME_ASSETS doc).
   const inset = Math.max(1, Math.round(holeWidth * asset.insetFraction));
   const cornerRadius = Math.max(1, Math.round(holeWidth * asset.cornerRadiusFraction));
-  const contentLeft = holeLeft + inset;
-  const contentTop = holeTop + inset;
   const contentWidth = Math.max(1, holeWidth - inset * 2);
   const contentHeight = Math.max(1, holeHeight - inset * 2);
 
   return (
     <div style={{ position: "absolute", width, height, ...style }}>
+      {/* Filled at the full hole rect (not just the inset content rect) so the
+          inset margin itself is painted with contentBackground instead of
+          staying transparent — otherwise whatever sits behind the frame (the
+          board background, or another overlapping frame) shows through that
+          margin as an unwanted sliver. */}
       <div
         style={{
           position: "absolute",
-          left: contentLeft,
-          top: contentTop,
-          width: contentWidth,
-          height: contentHeight,
+          left: holeLeft,
+          top: holeTop,
+          width: holeWidth,
+          height: holeHeight,
           borderRadius: cornerRadius,
           overflow: "hidden",
+          background: contentBackground,
         }}
       >
-        <ScreenContent src={src} crop={crop} width={contentWidth} height={contentHeight} contentBackground={contentBackground} />
+        <div style={{ position: "absolute", left: inset, top: inset, width: contentWidth, height: contentHeight }}>
+          <ScreenContent src={src} crop={crop} width={contentWidth} height={contentHeight} contentBackground={contentBackground} />
+        </div>
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
