@@ -153,8 +153,23 @@ export function CanvasEditor({
   function changeFrame(id: string, frame: FrameVariant) {
     const item = items.find((it) => it.id === id);
     if (!item) return;
-    const height = frame === "none" ? item.height : frameOuterHeight(frame, item.width);
-    updateItem(id, { frame, height });
+
+    if (frame === "none") {
+      // Show the crop exactly as captured — reset to the screenshot's own
+      // aspect ratio instead of leaving behind whatever device-frame shape
+      // (e.g. a phone's narrow screen) the box previously had, which would
+      // otherwise still crop the sides via object-fit: cover even with no
+      // frame selected.
+      const selection = selectionById.get(item.selectionId);
+      const height =
+        selection && selection.width > 0
+          ? Math.round(item.width * (selection.height / selection.width))
+          : item.height;
+      updateItem(id, { frame, height });
+      return;
+    }
+
+    updateItem(id, { frame, height: frameOuterHeight(frame, item.width) });
   }
 
   function selectImageBackground(imageId: string) {
