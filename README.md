@@ -97,7 +97,10 @@ This is a personal/small-team tool, not a general-purpose design app:
 - No automatic page discovery — pages are added manually.
 - No logo file upload (a path/URL field only).
 - Cookie/promo popups on captured pages are dismissed on a best-effort
-  basis, not guaranteed.
+  basis automatically, not guaranteed — for anything that slips through
+  (or a Cloudflare/CAPTCHA check), use a project's "Assisted Setup" to
+  dismiss it yourself once in a real browser window; future captures for
+  that project reuse the result.
 
 ## License
 
