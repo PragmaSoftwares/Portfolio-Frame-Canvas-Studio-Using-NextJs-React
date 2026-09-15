@@ -30,7 +30,8 @@ function parseItems(raw: unknown): CanvasItem[] | null {
       typeof e.frame !== "string" ||
       !FRAME_VARIANTS.includes(e.frame as FrameVariant) ||
       ("contentFit" in e && (typeof e.contentFit !== "string" || !CONTENT_FITS.includes(e.contentFit as CropFit))) ||
-      ("contentFitColor" in e && (typeof e.contentFitColor !== "string" || !HEX_COLOR_PATTERN.test(e.contentFitColor)))
+      ("contentFitColor" in e && (typeof e.contentFitColor !== "string" || !HEX_COLOR_PATTERN.test(e.contentFitColor))) ||
+      ("contentY" in e && (typeof e.contentY !== "number" || e.contentY < 0 || e.contentY > 1))
     ) {
       return null;
     }
@@ -46,6 +47,7 @@ function parseItems(raw: unknown): CanvasItem[] | null {
       frame: e.frame as FrameVariant,
       contentFit: typeof e.contentFit === "string" ? (e.contentFit as CropFit) : undefined,
       contentFitColor: typeof e.contentFitColor === "string" ? e.contentFitColor : undefined,
+      contentY: typeof e.contentY === "number" ? e.contentY : undefined,
     });
   }
   return items;

@@ -66,7 +66,7 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
         if (!resolved) return null;
         const { item, src } = resolved;
         const style = { left: item.x, top: item.y, zIndex: item.zIndex };
-        const crop = { ...DEFAULT_CROP, fit: item.contentFit ?? defaultContentFit(item.frame) };
+        const crop = { ...DEFAULT_CROP, fit: item.contentFit ?? defaultContentFit(item.frame), y: item.contentY ?? 0.5 };
         const contentBackground = item.contentFitColor ?? "#ffffff";
 
         if (item.frame === "none") {

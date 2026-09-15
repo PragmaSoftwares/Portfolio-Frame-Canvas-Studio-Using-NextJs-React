@@ -28,6 +28,13 @@ export interface CanvasItem {
   // image (a hex string, e.g. "#ffffff"). Only visible when contentFit is
   // "fit" and the crop's own aspect ratio doesn't exactly match the box.
   contentFitColor?: string;
+  // Vertical anchor (0 = top, 1 = bottom, default 0.5 = centered) for
+  // whichever part of the screenshot stays visible when its aspect ratio
+  // doesn't match the box — which part gets cropped under "fill", or which
+  // side the leftover letterbox space favors under "fit". Meaningless for
+  // "stretch" (always fills exactly, no offset possible). Set via the
+  // sidebar's vertical-position drag handle in CanvasEditor.
+  contentY?: number;
 }
 
 export interface Board {

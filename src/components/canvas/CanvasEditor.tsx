@@ -43,6 +43,110 @@ function backgroundImageSrc(filename: string): string {
   return `/api/media/backgrounds/${filename}`;
 }
 
+const V_TRACK_HEIGHT = 120;
+const V_THUMB_SIZE = 16;
+
+/**
+ * A vertical scrollbar-style drag handle for choosing which part of a
+ * screenshot stays visible when its aspect ratio doesn't match its frame —
+ * direct manipulation (drag the thumb, or use arrow keys) rather than a
+ * numeric input, matching how position/crop is adjusted everywhere else in
+ * this app. Thumb-at-top = top of the screenshot stays visible, and so on.
+ */
+function VerticalPositionControl({ value, onChange }: { value: number; onChange: (y: number) => void }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  function fractionFromClientY(clientY: number): number {
+    const track = trackRef.current;
+    if (!track) return value;
+    const rect = track.getBoundingClientRect();
+    return Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+  }
+
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    // Capture is best-effort (keeps the drag tracking even if the pointer
+    // leaves the track) — a capture failure shouldn't block applying the
+    // position itself.
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+    setDragging(true);
+    onChange(fractionFromClientY(e.clientY));
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragging) return;
+    onChange(fractionFromClientY(e.clientY));
+  }
+
+  function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    setDragging(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const step = e.shiftKey ? 0.15 : 0.05;
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      onChange(Math.max(0, value - step));
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      onChange(Math.min(1, value + step));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      onChange(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      onChange(1);
+    }
+  }
+
+  const usable = V_TRACK_HEIGHT - V_THUMB_SIZE;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-xs text-slate-400">Vertical position</label>
+        <span className="text-[11px] text-slate-500">{Math.round(value * 100)}% from top</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex flex-col items-center gap-1 text-[10px] text-slate-500">
+          <span>Top</span>
+          <div
+            ref={trackRef}
+            role="slider"
+            aria-orientation="vertical"
+            aria-label="Vertical position within the frame"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(value * 100)}
+            tabIndex={0}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onKeyDown={handleKeyDown}
+            style={{ height: V_TRACK_HEIGHT }}
+            className="relative w-6 cursor-grab touch-none rounded-full bg-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 active:cursor-grabbing"
+          >
+            <div
+              style={{ top: value * usable, height: V_THUMB_SIZE, width: V_THUMB_SIZE }}
+              className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-full border-2 border-indigo-400 bg-slate-950 shadow"
+            />
+          </div>
+          <span>Bottom</span>
+        </div>
+        <p className="text-[11px] text-slate-500">
+          Drag the handle (or use ↑/↓, Shift for bigger steps) to choose which part of a tall screenshot stays
+          visible.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /** Reads a File's natural pixel dimensions client-side, without uploading it first. */
 function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
@@ -189,6 +293,10 @@ export function CanvasEditor({
 
   function changeContentFitColor(id: string, contentFitColor: string) {
     updateItem(id, { contentFitColor });
+  }
+
+  function changeContentY(id: string, contentY: number) {
+    updateItem(id, { contentY: Math.min(1, Math.max(0, contentY)) });
   }
 
   function selectImageBackground(imageId: string) {
@@ -571,7 +679,11 @@ export function CanvasEditor({
                     {(() => {
                       const selection = selectionById.get(item.selectionId);
                       const src = selection ? mediaSrc(projectId, selection.filename) : null;
-                      const crop = { ...DEFAULT_CROP, fit: item.contentFit ?? defaultContentFit(item.frame) };
+                      const crop = {
+                        ...DEFAULT_CROP,
+                        fit: item.contentFit ?? defaultContentFit(item.frame),
+                        y: item.contentY ?? 0.5,
+                      };
                       const contentBackground = item.contentFitColor ?? "#ffffff";
                       if (item.frame === "none") {
                         return (
@@ -664,6 +776,12 @@ export function CanvasEditor({
                   </div>
                 )}
               </div>
+              {(selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)) !== "stretch" && (
+                <VerticalPositionControl
+                  value={selectedItem.contentY ?? 0.5}
+                  onChange={(y) => changeContentY(selectedItem.id, y)}
+                />
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={() => bringToFront(selectedItem.id)}
