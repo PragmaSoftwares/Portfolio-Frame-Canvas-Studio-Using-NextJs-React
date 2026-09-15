@@ -223,7 +223,7 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
       <div className="flex flex-wrap items-start gap-6">
         <div className="space-y-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">1. Captured screenshot</p>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {DEVICES.map((d) => (
               <button
                 key={d}
@@ -242,7 +242,7 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
 
         <div className="space-y-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">2. Crop to this frame&apos;s shape</p>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {ASPECT_PRESETS.map((preset) => (
               <button
                 key={preset.label}

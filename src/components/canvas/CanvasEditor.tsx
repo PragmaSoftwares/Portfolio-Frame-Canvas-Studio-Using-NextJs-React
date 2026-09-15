@@ -435,7 +435,7 @@ export function CanvasEditor({
   const canvasBackgroundImageUrl = selectedBackgroundImage ? backgroundImageSrc(selectedBackgroundImage.filename) : null;
 
   return (
-    <div className="flex h-screen flex-col bg-slate-950 text-slate-100">
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100 lg:h-screen">
       {/* Shown only on touch-primary devices (see .touch-notice in
           globals.css) — pure CSS, no JS/hydration risk. Precise drag/
           resize/layer composition genuinely doesn't work well on touch
@@ -448,7 +448,7 @@ export function CanvasEditor({
         onto the canvas) need precise pointer control that touch screens can&apos;t provide yet. For now, build
         boards on a desktop; touch support may come later.
       </div>
-      <header className="flex items-center justify-between gap-4 border-b border-slate-800 px-6 py-3">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-800 px-6 py-3">
         <div className="flex items-center gap-4">
           <Link href={`/projects/${projectId}`} className="text-xs text-slate-500 hover:text-slate-300">
             ← {projectName}
@@ -462,7 +462,7 @@ export function CanvasEditor({
             className="rounded border border-transparent bg-transparent px-2 py-1 text-lg font-semibold outline-none hover:border-slate-700 focus:border-indigo-500"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-1">
             <button
               onClick={() => {
@@ -580,8 +580,8 @@ export function CanvasEditor({
         )}
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-72 shrink-0 overflow-y-auto border-r border-slate-800 p-4">
+      <div className="flex flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+        <aside className="w-full shrink-0 overflow-y-auto border-b border-slate-800 p-4 lg:w-72 lg:border-r lg:border-b-0">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
             Cropped screenshots — drag onto the canvas
           </h2>
@@ -649,7 +649,14 @@ export function CanvasEditor({
           )}
         </aside>
 
-        <main className="flex flex-1 items-center justify-center overflow-auto p-8">
+        {/* min-w-0/min-h-0 override flex's default min-width/height: auto —
+            without them, this item won't shrink below the fixed-pixel-width
+            board canvas inside it, which is what was actually forcing the
+            whole page wider than the viewport on narrow screens. With them,
+            the board itself (still its real export pixel size, unscaled)
+            just scrolls within this box instead — not editable via touch,
+            but contained, not broken-looking. */}
+        <main className="flex min-h-[60vh] min-w-0 flex-1 items-center justify-center overflow-auto p-8 lg:min-h-0">
           <div
             ref={canvasRef}
             onDragOver={(e) => e.preventDefault()}
@@ -744,7 +751,7 @@ export function CanvasEditor({
           </div>
         </main>
 
-        <aside className="w-64 shrink-0 space-y-4 overflow-y-auto border-l border-slate-800 p-4">
+        <aside className="w-full shrink-0 space-y-4 overflow-y-auto border-t border-slate-800 p-4 lg:w-64 lg:border-t-0 lg:border-l">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Selected item</h2>
           {selectedItem ? (
             <>
