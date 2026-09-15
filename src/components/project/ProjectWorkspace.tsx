@@ -23,9 +23,10 @@ interface ProjectWorkspaceProps {
   project: ProjectData;
   initialCaptures: Record<string, PageCaptureMeta>;
   initialBoards: Board[];
+  selectionCount: number;
 }
 
-export function ProjectWorkspace({ project, initialCaptures, initialBoards }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({ project, initialCaptures, initialBoards, selectionCount }: ProjectWorkspaceProps) {
   const router = useRouter();
   const [pages, setPages] = useState<ApprovedPage[]>(project.approvedPages);
   const [captures, setCaptures] = useState<Record<string, PageCaptureMeta>>(initialCaptures);
@@ -237,14 +238,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards }: Pr
           <Link href="/" className="text-xs text-slate-500 hover:text-slate-300">
             ← Dashboard
           </Link>
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold">{project.name}</h1>
-            <div className="flex items-center gap-4 text-xs">
-              <Link href={`/projects/${project.id}/review`} className="text-indigo-400 hover:text-indigo-300">
-                Review screenshots →
-              </Link>
-            </div>
-          </div>
+          <h1 className="text-2xl font-semibold">{project.name}</h1>
           <p className="text-slate-400 text-sm">
             <a href={project.mainUrl} target="_blank" rel="noreferrer" className="hover:text-indigo-400">
               {project.mainUrl}
@@ -380,6 +374,31 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards }: Pr
           </p>
         </section>
 
+        <section>
+          <div
+            className={`flex flex-wrap items-center justify-between gap-4 rounded-xl border px-5 py-4 ${
+              selectionCount === 0 ? "border-amber-700/60 bg-amber-950/20" : "border-slate-800 bg-slate-900/40"
+            }`}
+          >
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+                {selectionCount === 0 ? "Next step: review & crop your captures" : "Review & crop screenshots"}
+              </h2>
+              <p className="mt-1 text-xs text-slate-400">
+                {selectionCount === 0
+                  ? "Capture a page above, then crop the sections you want to use — a board has nothing to work with until you do this."
+                  : `${selectionCount} section${selectionCount === 1 ? "" : "s"} cropped and ready to drag onto a canvas.`}
+              </p>
+            </div>
+            <Link
+              href={`/projects/${project.id}/review`}
+              className="shrink-0 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400"
+            >
+              Review &amp; crop screenshots →
+            </Link>
+          </div>
+        </section>
+
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
@@ -397,6 +416,12 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards }: Pr
             Crop the sections you want on the review screen, then arrange them freely on a canvas — drag, resize,
             layer, and export as many boards as you need.
           </p>
+          {selectionCount === 0 && (
+            <p className="text-xs text-amber-500">
+              You haven&apos;t cropped any screenshots yet — a new board will start empty. Review &amp; crop first
+              (above), or just make a note to come back to this one.
+            </p>
+          )}
 
           {boardError && (
             <div className="rounded-lg border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">

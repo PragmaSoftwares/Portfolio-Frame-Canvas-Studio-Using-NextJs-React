@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { readProject } from "@/lib/storage/projects";
 import { readPageCaptureMeta } from "@/lib/storage/captures";
 import { listBoards } from "@/lib/storage/boards";
+import { listAllSelections } from "@/lib/storage/review";
 import { ProjectWorkspace } from "@/components/project/ProjectWorkspace";
 import type { PageCaptureMeta } from "@/types/capture";
 
@@ -21,6 +22,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   }
 
   const boards = await listBoards(id);
+  const selections = await listAllSelections(id, project.approvedPages);
 
-  return <ProjectWorkspace project={project} initialCaptures={captures} initialBoards={boards} />;
+  return (
+    <ProjectWorkspace project={project} initialCaptures={captures} initialBoards={boards} selectionCount={selections.length} />
+  );
 }
