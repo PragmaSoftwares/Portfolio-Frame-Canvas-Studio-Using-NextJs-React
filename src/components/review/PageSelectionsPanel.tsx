@@ -212,33 +212,41 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
         <p className="text-xs text-slate-500">{page.url}</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex gap-1.5">
-          {DEVICES.map((d) => (
-            <button
-              key={d}
-              onClick={() => handleDeviceChange(d)}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
-                device === d ? "border-indigo-500 text-indigo-300" : "border-slate-700 text-slate-400 hover:border-slate-500"
-              }`}
-            >
-              {d}
-            </button>
-          ))}
+      <div className="flex flex-wrap items-start gap-6">
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">1. Captured screenshot</p>
+          <div className="flex gap-1.5">
+            {DEVICES.map((d) => (
+              <button
+                key={d}
+                onClick={() => handleDeviceChange(d)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
+                  device === d ? "border-indigo-500 text-indigo-300" : "border-slate-700 text-slate-400 hover:border-slate-500"
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex gap-1.5">
-          {ASPECT_PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              onClick={() => handleAspectChange(preset.value)}
-              className={`rounded-lg border px-3 py-1.5 text-xs ${
-                aspect === preset.value ? "border-indigo-500 text-indigo-300" : "border-slate-700 text-slate-400 hover:border-slate-500"
-              }`}
-            >
-              {preset.label}
-            </button>
-          ))}
+        <div className="h-11 w-px shrink-0 self-end bg-slate-800" />
+
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">2. Crop to this frame&apos;s shape</p>
+          <div className="flex gap-1.5">
+            {ASPECT_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                onClick={() => handleAspectChange(preset.value)}
+                className={`rounded-full border px-3 py-1.5 text-xs ${
+                  aspect === preset.value ? "border-emerald-500 text-emerald-300" : "border-slate-700 text-slate-400 hover:border-slate-500"
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
