@@ -1,8 +1,3 @@
-export interface ProjectWatermark {
-  text: string;
-  visible: boolean;
-}
-
 export interface ApprovedPage {
   slug: string;
   url: string;
@@ -19,7 +14,8 @@ export interface ProjectData {
   accentColor: string;
   backgroundPreference: "light" | "dark";
   logoPath: string | null;
-  watermark: ProjectWatermark;
+  // Watermark (text/visibility) is agency-wide, not per-project — see
+  // AgencySettings.defaultWatermarkText/defaultWatermarkVisible.
   servicesDelivered: string[];
   technologiesUsed: string[];
   approvedPages: ApprovedPage[];

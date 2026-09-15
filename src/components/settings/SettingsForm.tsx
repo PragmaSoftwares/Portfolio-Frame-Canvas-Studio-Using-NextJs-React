@@ -98,7 +98,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
             />
           </Field>
 
-          <Field label="Default watermark text">
+          <Field label="Watermark text">
             <input
               value={defaultWatermarkText}
               onChange={(e) => setDefaultWatermarkText(e.target.value)}
@@ -113,8 +113,12 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
               onChange={(e) => setDefaultWatermarkVisible(e.target.checked)}
               className="h-4 w-4 rounded border-slate-700 bg-slate-900"
             />
-            Show watermark by default on new projects
+            Show watermark on every board&apos;s export
           </label>
+          <p className="-mt-2 text-xs text-amber-400/80">
+            Unlike the rest of this page, this takes effect immediately across every project — including ones
+            already created — not just new ones going forward.
+          </p>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Field label="Watermark color">

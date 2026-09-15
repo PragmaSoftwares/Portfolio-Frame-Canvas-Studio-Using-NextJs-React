@@ -16,8 +16,6 @@ export function CustomizeForm({ project }: CustomizeFormProps) {
   const [accentColor, setAccentColor] = useState(project.accentColor);
   const [backgroundPreference, setBackgroundPreference] = useState(project.backgroundPreference);
   const [logoPath, setLogoPath] = useState(project.logoPath ?? "");
-  const [watermarkText, setWatermarkText] = useState(project.watermark.text);
-  const [watermarkVisible, setWatermarkVisible] = useState(project.watermark.visible);
   const [servicesDelivered, setServicesDelivered] = useState(project.servicesDelivered.join(", "));
   const [technologiesUsed, setTechnologiesUsed] = useState(project.technologiesUsed.join(", "));
 
@@ -41,7 +39,6 @@ export function CustomizeForm({ project }: CustomizeFormProps) {
           accentColor,
           backgroundPreference,
           logoPath: logoPath || null,
-          watermark: { text: watermarkText, visible: watermarkVisible },
           servicesDelivered: servicesDelivered.split(",").map((s) => s.trim()).filter(Boolean),
           technologiesUsed: technologiesUsed.split(",").map((s) => s.trim()).filter(Boolean),
         }),
@@ -66,7 +63,8 @@ export function CustomizeForm({ project }: CustomizeFormProps) {
           </Link>
           <h1 className="text-2xl font-semibold">Customize</h1>
           <p className="text-slate-400 text-sm">
-            Text, colour, background, logo, and watermark for this project&apos;s boards.
+            Text, colour, background, and logo for this project&apos;s boards. Watermark is agency-wide now —
+            see <Link href="/settings" className="text-indigo-400 hover:text-indigo-300">Settings</Link>.
           </p>
         </header>
 
@@ -126,23 +124,6 @@ export function CustomizeForm({ project }: CustomizeFormProps) {
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
             />
           </Field>
-
-          <Field label="Watermark text">
-            <input
-              value={watermarkText}
-              onChange={(e) => setWatermarkText(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-            />
-          </Field>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
-              checked={watermarkVisible}
-              onChange={(e) => setWatermarkVisible(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-700 bg-slate-900"
-            />
-            Show watermark on boards
-          </label>
 
           <Field label="Services delivered" hint="Comma-separated. Shown as labels on Feature Showcase.">
             <input

@@ -56,10 +56,6 @@ export async function POST(request: Request) {
     accentColor: "#6366f1",
     backgroundPreference: "dark",
     logoPath: settings.agencyLogoPath,
-    watermark: {
-      text: settings.defaultWatermarkText,
-      visible: settings.defaultWatermarkVisible,
-    },
     servicesDelivered: [...settings.standardServices],
     technologiesUsed: [],
     approvedPages: [{ slug: HOME_PAGE_SLUG, url: parsedUrl.toString(), label: "Home" }],

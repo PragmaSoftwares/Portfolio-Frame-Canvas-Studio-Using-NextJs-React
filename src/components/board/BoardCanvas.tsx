@@ -82,9 +82,10 @@ function escapeXml(text: string): string {
  * CSS background-repeat so it covers the whole canvas and can't be cropped
  * or copy-pasted out of a single spot. Built as one SVG tile (not one big
  * SVG covering the whole canvas) so it repeats crisply at any canvas size
- * without regenerating markup per size. Color/line width/text size are the
- * agency-wide style (Settings); whether it shows at all and what text it
- * says are per-project (Customize) — see ProjectWatermark.
+ * without regenerating markup per size. Everything about it — color, line
+ * width, text size, opacity, whether it shows at all, and what text it
+ * says — is agency-wide (AgencySettings), applied identically to every
+ * project's boards; there's no per-project override.
  */
 export function watermarkStyle(
   text: string,

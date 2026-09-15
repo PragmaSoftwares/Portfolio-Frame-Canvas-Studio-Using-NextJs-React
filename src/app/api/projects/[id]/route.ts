@@ -80,14 +80,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       typeof record.logoPath === "string" && record.logoPath.trim().length > 0 ? record.logoPath.trim() : null;
   }
 
-  if ("watermark" in record) {
-    const w = record.watermark as Record<string, unknown>;
-    if (typeof w !== "object" || w === null || typeof w.text !== "string" || typeof w.visible !== "boolean") {
-      return NextResponse.json({ error: "Invalid watermark value." }, { status: 400 });
-    }
-    patch.watermark = { text: w.text, visible: w.visible };
-  }
-
   if ("servicesDelivered" in record) {
     if (!Array.isArray(record.servicesDelivered) || !record.servicesDelivered.every((s) => typeof s === "string")) {
       return NextResponse.json({ error: "servicesDelivered must be a list of strings." }, { status: 400 });

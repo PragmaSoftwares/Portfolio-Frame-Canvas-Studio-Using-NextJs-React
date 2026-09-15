@@ -12,7 +12,6 @@ import type { CropFit } from "@/types/review";
 import { defaultFrameWidth, frameOuterHeight, defaultFrameForDevice, defaultContentFit } from "@/lib/board/frameSize";
 import type { Board, BackgroundFit, BoardBackground, CanvasItem, FrameVariant } from "@/types/board";
 import type { BackgroundImage } from "@/types/backgroundImage";
-import type { ProjectWatermark } from "@/types/project";
 import type { SelectionWithPage } from "@/lib/storage/review";
 
 interface CanvasEditorProps {
@@ -21,7 +20,10 @@ interface CanvasEditorProps {
   board: Board;
   selections: SelectionWithPage[];
   backgroundImages: BackgroundImage[];
-  watermark: ProjectWatermark;
+  // Watermark is agency-wide (AgencySettings.defaultWatermarkVisible/Text),
+  // not per-project — applies identically to every project's boards.
+  watermarkVisible: boolean;
+  watermarkText: string;
   watermarkColor: string;
   watermarkLineWidth: number;
   watermarkFontSize: number;
@@ -176,7 +178,8 @@ export function CanvasEditor({
   board: initialBoard,
   selections,
   backgroundImages: initialBackgroundImages,
-  watermark,
+  watermarkVisible,
+  watermarkText,
   watermarkColor,
   watermarkLineWidth,
   watermarkFontSize,
@@ -723,8 +726,8 @@ export function CanvasEditor({
                 </div>
               </Rnd>
             ))}
-            {watermark.visible && watermark.text.trim().length > 0 && (
-              <div style={watermarkStyle(watermark.text, watermarkColor, watermarkLineWidth, watermarkFontSize, watermarkOpacity, EDITOR_SCALE)} />
+            {watermarkVisible && watermarkText.trim().length > 0 && (
+              <div style={watermarkStyle(watermarkText, watermarkColor, watermarkLineWidth, watermarkFontSize, watermarkOpacity, EDITOR_SCALE)} />
             )}
           </div>
         </main>

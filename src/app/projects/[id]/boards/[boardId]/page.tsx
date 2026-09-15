@@ -29,7 +29,8 @@ export default async function BoardPage({ params }: BoardPageProps) {
       board={board}
       selections={selections}
       backgroundImages={backgroundImages}
-      watermark={project.watermark}
+      watermarkVisible={settings.defaultWatermarkVisible}
+      watermarkText={settings.defaultWatermarkText}
       watermarkColor={settings.watermarkColor}
       watermarkLineWidth={settings.watermarkLineWidth}
       watermarkFontSize={settings.watermarkFontSize}

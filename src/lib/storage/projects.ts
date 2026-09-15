@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { PROJECTS_ROOT, HOME_PAGE_SLUG, generateProjectId, projectDir } from "./paths";
-import type { ProjectData, ProjectWatermark } from "@/types/project";
+import type { ProjectData } from "@/types/project";
 
 const PROJECT_FILENAME = "project.json";
 
@@ -25,6 +25,9 @@ function migrateProject(raw: Record<string, unknown>): ProjectData {
     }));
   }
   delete raw.approvedPageUrls;
+  // Watermark moved from per-project to agency-wide (AgencySettings) — drop
+  // the now-unused stored field from anything written before that change.
+  delete raw.watermark;
   return raw as unknown as ProjectData;
 }
 
@@ -75,7 +78,6 @@ export interface UpdateProjectPatch {
   accentColor?: string;
   backgroundPreference?: "light" | "dark";
   logoPath?: string | null;
-  watermark?: ProjectWatermark;
   servicesDelivered?: string[];
   technologiesUsed?: string[];
 }

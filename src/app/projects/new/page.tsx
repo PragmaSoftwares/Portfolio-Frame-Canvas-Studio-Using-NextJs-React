@@ -40,7 +40,7 @@ export default function NewProjectPage() {
           </Link>
           <h1 className="text-2xl font-semibold">New project</h1>
           <p className="text-slate-400 text-sm">
-            You can add branding, watermark, and multiple pages later — this just gets the project started.
+            You can add branding and multiple pages later — this just gets the project started.
           </p>
         </header>
 

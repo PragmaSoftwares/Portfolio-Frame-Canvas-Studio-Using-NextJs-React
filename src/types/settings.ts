@@ -3,9 +3,10 @@ export interface AgencySettings {
   agencyLogoPath: string | null;
   defaultWatermarkText: string;
   defaultWatermarkVisible: boolean;
-  // Styling for the repeating diagonal watermark pattern — shared across every
-  // project/board that has a watermark on, so it stays visually consistent
-  // (the per-project text/visible toggle lives on ProjectWatermark instead).
+  // Styling for the repeating diagonal watermark pattern — agency-wide, not
+  // per-project. defaultWatermarkVisible doubles as a live global switch:
+  // when on, every project's exports show the watermark immediately
+  // (including already-created projects), not just new ones going forward.
   watermarkColor: string; // hex
   watermarkLineWidth: number; // px
   watermarkFontSize: number; // px

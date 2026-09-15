@@ -1,5 +1,4 @@
 import { readBoard } from "@/lib/storage/boards";
-import { readProject } from "@/lib/storage/projects";
 import { readPageSelections } from "@/lib/storage/review";
 import { readBackgroundImage } from "@/lib/storage/backgroundImages";
 import { readSettings } from "@/lib/storage/settings";
@@ -30,10 +29,6 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
   const board = await readBoard(projectId, boardId);
   if (!board) {
     return <ErrorMessage>Board &quot;{boardId}&quot; was not found.</ErrorMessage>;
-  }
-  const project = await readProject(projectId);
-  if (!project) {
-    return <ErrorMessage>Project &quot;{projectId}&quot; was not found.</ErrorMessage>;
   }
   const settings = await readSettings();
 
@@ -68,8 +63,8 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
       background={board.background}
       backgroundImageUrl={backgroundImageUrl}
       backgroundFit={board.backgroundFit}
-      watermarkEnabled={project.watermark.visible}
-      watermarkText={project.watermark.text}
+      watermarkEnabled={settings.defaultWatermarkVisible}
+      watermarkText={settings.defaultWatermarkText}
       watermarkColor={settings.watermarkColor}
       watermarkLineWidth={settings.watermarkLineWidth}
       watermarkFontSize={settings.watermarkFontSize}
