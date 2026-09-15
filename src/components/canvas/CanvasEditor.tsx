@@ -294,6 +294,10 @@ export function CanvasEditor({
       textTransform: "none",
       verticalAlign: "top",
       opacity: 1,
+      textShadowBlur: 4,
+      textShadowOffsetX: 2,
+      textShadowOffsetY: 2,
+      textStrokeWidth: 1,
     };
     setItems((prev) => [...prev, item]);
     setSelectedId(item.id);
@@ -1089,6 +1093,91 @@ export function CanvasEditor({
                         title={selectedItem.backgroundColor ? undefined : "Pick a color to add a background plate behind the text"}
                         className="h-9 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900 p-0.5"
                       />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-slate-400">Shadow</label>
+                      {selectedItem.textShadowColor && (
+                        <button
+                          onClick={() => updateTextItem(selectedItem.id, { textShadowColor: undefined })}
+                          className="text-[11px] text-slate-500 hover:text-slate-300"
+                        >
+                          None
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="color"
+                      value={selectedItem.textShadowColor ?? "#000000"}
+                      onChange={(e) => updateTextItem(selectedItem.id, { textShadowColor: e.target.value })}
+                      title={selectedItem.textShadowColor ? undefined : "Pick a color to add a drop shadow behind the text"}
+                      className="h-9 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900 p-0.5"
+                    />
+                    {selectedItem.textShadowColor && (
+                      <div className="grid grid-cols-3 gap-2 pt-1">
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-slate-500">Blur</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={selectedItem.textShadowBlur}
+                            onChange={(e) => updateTextItem(selectedItem.id, { textShadowBlur: Math.max(0, Number(e.target.value)) })}
+                            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-slate-500">Offset X</label>
+                          <input
+                            type="number"
+                            value={selectedItem.textShadowOffsetX}
+                            onChange={(e) => updateTextItem(selectedItem.id, { textShadowOffsetX: Number(e.target.value) })}
+                            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-slate-500">Offset Y</label>
+                          <input
+                            type="number"
+                            value={selectedItem.textShadowOffsetY}
+                            onChange={(e) => updateTextItem(selectedItem.id, { textShadowOffsetY: Number(e.target.value) })}
+                            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-slate-400">Outline</label>
+                      {selectedItem.textStrokeColor && (
+                        <button
+                          onClick={() => updateTextItem(selectedItem.id, { textStrokeColor: undefined })}
+                          className="text-[11px] text-slate-500 hover:text-slate-300"
+                        >
+                          None
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        value={selectedItem.textStrokeColor ?? "#000000"}
+                        onChange={(e) => updateTextItem(selectedItem.id, { textStrokeColor: e.target.value })}
+                        title={selectedItem.textStrokeColor ? undefined : "Pick a color to add an outline around the text"}
+                        className="h-9 w-16 shrink-0 cursor-pointer rounded-lg border border-slate-700 bg-slate-900 p-0.5"
+                      />
+                      {selectedItem.textStrokeColor && (
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.5}
+                          value={selectedItem.textStrokeWidth}
+                          onChange={(e) => updateTextItem(selectedItem.id, { textStrokeWidth: Math.max(0, Number(e.target.value)) })}
+                          title="Outline width (px)"
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                        />
+                      )}
                     </div>
                   </div>
                 </>

@@ -49,5 +49,10 @@ export function textContentStyle(item: TextItem): CSSProperties {
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
     outline: "none",
+    textShadow: item.textShadowColor
+      ? `${item.textShadowOffsetX}px ${item.textShadowOffsetY}px ${item.textShadowBlur}px ${item.textShadowColor}`
+      : "none",
+    WebkitTextStrokeWidth: item.textStrokeColor ? `${item.textStrokeWidth}px` : undefined,
+    WebkitTextStrokeColor: item.textStrokeColor,
   };
 }

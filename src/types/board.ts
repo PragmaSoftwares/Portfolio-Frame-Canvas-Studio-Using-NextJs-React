@@ -73,6 +73,19 @@ export interface TextItem extends CanvasItemBase {
   // fading it uses the separate `opacity` field instead.
   backgroundColor?: string; // hex
   opacity: number; // 0-1, applied to the whole item (text + background plate together)
+  // Drop shadow behind the text — undefined/absent means no shadow at all,
+  // same "absence, not a stored transparent value" convention as
+  // backgroundColor above.
+  textShadowColor?: string; // hex
+  textShadowBlur: number; // px
+  textShadowOffsetX: number; // px
+  textShadowOffsetY: number; // px
+  // An outline around each glyph, via -webkit-text-stroke — well supported
+  // in the Chromium this app both previews in (during development) and
+  // exports through (Playwright), which is the only rendering target that
+  // actually matters here. Same undefined-means-off convention.
+  textStrokeColor?: string; // hex
+  textStrokeWidth: number; // px
 }
 
 export type CanvasItem = ScreenshotItem | TextItem;

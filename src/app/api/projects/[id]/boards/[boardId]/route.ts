@@ -53,7 +53,15 @@ function parseItems(raw: unknown): CanvasItem[] | null {
         typeof e.verticalAlign !== "string" ||
         !VERTICAL_ALIGNS.includes(e.verticalAlign as VerticalAlign) ||
         typeof e.opacity !== "number" ||
-        ("backgroundColor" in e && e.backgroundColor !== undefined && (typeof e.backgroundColor !== "string" || !HEX_COLOR_PATTERN.test(e.backgroundColor)))
+        ("backgroundColor" in e && e.backgroundColor !== undefined && (typeof e.backgroundColor !== "string" || !HEX_COLOR_PATTERN.test(e.backgroundColor))) ||
+        typeof e.textShadowBlur !== "number" ||
+        typeof e.textShadowOffsetX !== "number" ||
+        typeof e.textShadowOffsetY !== "number" ||
+        ("textShadowColor" in e &&
+          e.textShadowColor !== undefined &&
+          (typeof e.textShadowColor !== "string" || !HEX_COLOR_PATTERN.test(e.textShadowColor))) ||
+        typeof e.textStrokeWidth !== "number" ||
+        ("textStrokeColor" in e && e.textStrokeColor !== undefined && (typeof e.textStrokeColor !== "string" || !HEX_COLOR_PATTERN.test(e.textStrokeColor)))
       ) {
         return null;
       }
@@ -79,6 +87,12 @@ function parseItems(raw: unknown): CanvasItem[] | null {
         verticalAlign: e.verticalAlign as VerticalAlign,
         backgroundColor: typeof e.backgroundColor === "string" ? e.backgroundColor : undefined,
         opacity: Math.min(1, Math.max(0, e.opacity)),
+        textShadowColor: typeof e.textShadowColor === "string" ? e.textShadowColor : undefined,
+        textShadowBlur: Math.max(0, e.textShadowBlur),
+        textShadowOffsetX: e.textShadowOffsetX,
+        textShadowOffsetY: e.textShadowOffsetY,
+        textStrokeColor: typeof e.textStrokeColor === "string" ? e.textStrokeColor : undefined,
+        textStrokeWidth: Math.max(0, e.textStrokeWidth),
       });
       continue;
     }

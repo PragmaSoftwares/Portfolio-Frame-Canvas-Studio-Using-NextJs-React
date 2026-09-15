@@ -18,8 +18,9 @@ function boardPath(projectId: string, boardId: string): string {
 // Every item used to implicitly be a screenshot — text items didn't exist —
 // so a board file saved before that has items with no `kind` field at all.
 // Backfill it on read rather than forcing a one-time migration script. Text
-// items also gained textTransform/verticalAlign/opacity after they first
-// shipped, so backfill those too for any text item saved in that window.
+// items also gained fields (textTransform/verticalAlign/opacity, then
+// textShadow*/textStroke*) after they first shipped, so backfill those too
+// for any text item saved in one of those windows.
 function migrateBoard(raw: Record<string, unknown>): Board {
   if (Array.isArray(raw.items)) {
     raw.items = raw.items.map((item) => {
@@ -27,7 +28,16 @@ function migrateBoard(raw: Record<string, unknown>): Board {
       const record = item as Record<string, unknown>;
       if (record.kind === undefined) return { ...record, kind: "screenshot" };
       if (record.kind === "text") {
-        return { textTransform: "none", verticalAlign: "top", opacity: 1, ...record };
+        return {
+          textTransform: "none",
+          verticalAlign: "top",
+          opacity: 1,
+          textShadowBlur: 4,
+          textShadowOffsetX: 2,
+          textShadowOffsetY: 2,
+          textStrokeWidth: 1,
+          ...record,
+        };
       }
       return record;
     });
