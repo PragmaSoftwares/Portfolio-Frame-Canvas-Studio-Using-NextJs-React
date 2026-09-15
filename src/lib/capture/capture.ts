@@ -18,14 +18,43 @@ export const MOBILE_VIEWPORT: Viewport = { width: 390, height: 844 };
 
 const NAVIGATION_TIMEOUT_MS = 30_000;
 
-// Best-effort selectors for common cookie-consent banners. Missing matches are ignored.
+// Best-effort selectors for common cookie-consent banners — the known,
+// finite set of mainstream consent-management platforms, plus generic
+// accept/dismiss text. This can never cover a bespoke/one-off promo popup
+// (there's no shared pattern to hook onto for those) — that's what
+// Assisted Setup (saved storageState, see assistedSetup.ts) is for.
+// Missing matches are ignored; a matched-but-unclickable one just moves on.
 const COOKIE_BANNER_SELECTORS = [
+  // Generic text, broadened beyond just "accept"
   "text=/accept all/i",
   "text=/accept cookies/i",
   "text=/i agree/i",
   "text=/allow all/i",
-  "#onetrust-accept-btn-handler",
+  "text=/^got it$/i",
+  "text=/^ok$/i",
+  "text=/^i accept$/i",
   "button[aria-label*='Accept' i]",
+  // OneTrust
+  "#onetrust-accept-btn-handler",
+  // Cookiebot / Usercentrics — Playwright's CSS engine pierces open shadow
+  // roots automatically (Usercentrics renders its UI inside one), no special
+  // shadow-piercing syntax needed — confirmed live against cytoskeleton.com.
+  "#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll",
+  "#usercentrics-cmp-ui button[data-action='accept']",
+  // Quantcast Choice
+  ".qc-cmp2-summary-buttons button[mode='primary']",
+  // TrustArc
+  "#truste-consent-button",
+  // Didomi
+  "#didomi-notice-agree-button",
+  // Osano
+  ".osano-cm-accept-all",
+  // CookieYes
+  ".cky-btn-accept",
+  // Complianz
+  ".cmplz-accept",
+  // Iubenda
+  ".iubenda-cs-accept-btn",
 ];
 
 // Common chat-widget containers, hidden (not removed) so layout doesn't shift.
@@ -36,6 +65,20 @@ const CHAT_WIDGET_SELECTORS = [
   ".crisp-client",
   "#drift-widget",
   "[id^='hubspot-messages-iframe-container']",
+];
+
+// Bot/CAPTCHA challenges (Cloudflare Turnstile, hCaptcha, reCAPTCHA, and
+// Cloudflare's classic "Just a moment..." interstitial). These are actively
+// designed to detect and block automation, not dismiss like a cookie banner
+// — clicking through them isn't a reliable option (see docs/DEV_GUIDE.md).
+// Detected, not clicked: capture fails honestly instead of screenshotting
+// the challenge page or silently proceeding.
+const BOT_CHALLENGE_SELECTORS = [
+  "iframe[src*='challenges.cloudflare.com']",
+  "iframe[src*='hcaptcha.com']",
+  "iframe[src*='recaptcha']",
+  "#challenge-running",
+  "#cf-challenge-running",
 ];
 
 async function preparePage(page: Page, url: string): Promise<void> {
@@ -89,11 +132,67 @@ async function preparePage(page: Page, url: string): Promise<void> {
     // Non-fatal.
   }
 
+  // Checked once, early — a bot/CAPTCHA challenge (unlike a cookie banner)
+  // is actively trying to detect and block automation, not something to
+  // click through. Fail honestly rather than screenshotting the challenge
+  // page or attempting to defeat it. See docs/DEV_GUIDE.md for why this
+  // isn't handled the same way as cookie/promo popups.
+  for (const selector of BOT_CHALLENGE_SELECTORS) {
+    try {
+      if (await page.locator(selector).first().isVisible({ timeout: 500 })) {
+        throw new CaptureError(
+          "blocked",
+          "This page uses bot/CAPTCHA protection (e.g. Cloudflare Turnstile) that couldn't be captured automatically. Run Assisted Setup for this project — solving it there once may let capture through for a while."
+        );
+      }
+    } catch (err) {
+      if (err instanceof CaptureError) throw err;
+      // Selector not present — ignore and check the next one.
+    }
+  }
+
+  await dismissOverlays(page);
+
+  // Scroll through once to trigger lazy-loaded content (this is also when a
+  // scroll-triggered promo popup actually appears — see docs/DEV_GUIDE.md),
+  // then return to the top.
+  await page.evaluate(async () => {
+    const step = window.innerHeight;
+    const scrollHeight = document.body.scrollHeight;
+    for (let y = 0; y < scrollHeight; y += step) {
+      window.scrollTo(0, y);
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+    window.scrollTo(0, 0);
+  });
+  await page.waitForTimeout(200);
+
+  // Run again — a popup born during the scroll-through (the common case for
+  // "don't show this again"-style promo banners) wouldn't have existed for
+  // the first pass above.
+  await dismissOverlays(page);
+}
+
+/**
+ * Best-effort dismissal of cookie-consent banners (known CMPs + generic
+ * text) and hiding of chat widgets. Called at more than one point in the
+ * page lifecycle (see preparePage) since a banner's own appearance timing
+ * varies by site — some show immediately, some only after a scroll. Cannot
+ * cover a bespoke/one-off promo popup with no shared pattern to match on;
+ * that's what Assisted Setup's saved storageState is for.
+ */
+async function dismissOverlays(page: Page): Promise<void> {
   for (const selector of COOKIE_BANNER_SELECTORS) {
     try {
       const locator = page.locator(selector).first();
       if (await locator.isVisible({ timeout: 1_000 })) {
-        await locator.click({ timeout: 1_000 });
+        // A longer click timeout than the visibility check — a banner that's
+        // just become visible may still be mid-transition for another
+        // second or two, and Playwright won't commit to a click until the
+        // element is "stable" (not actively animating). A too-short timeout
+        // here found-but-couldn't-click a real, working button on a real
+        // site (Cookiebot/Usercentrics on cytoskeleton.com) during testing.
+        await locator.click({ timeout: 4_000 });
         await page.waitForTimeout(300);
         break;
       }
@@ -113,18 +212,6 @@ async function preparePage(page: Page, url: string): Promise<void> {
       // Ignore missing widgets.
     }
   }
-
-  // Scroll through once to trigger lazy-loaded content, then return to the top.
-  await page.evaluate(async () => {
-    const step = window.innerHeight;
-    const scrollHeight = document.body.scrollHeight;
-    for (let y = 0; y < scrollHeight; y += step) {
-      window.scrollTo(0, y);
-      await new Promise((resolve) => setTimeout(resolve, 120));
-    }
-    window.scrollTo(0, 0);
-  });
-  await page.waitForTimeout(200);
 }
 
 export interface DeviceCaptureBuffers {
@@ -158,13 +245,20 @@ async function captureDevice(context: BrowserContext, url: string, viewport: Vie
  * the plan). Devices are captured sequentially, in one browser context, with
  * a consistent locale, timezone, and light colour scheme for reproducible
  * output.
+ *
+ * `storageStatePath`, when given, seeds the context with cookies/localStorage
+ * saved from a prior Assisted Setup session (see assistedSetup.ts) — a site
+ * that already "sees" a returning, already-consented visitor typically won't
+ * show its cookie/promo banner at all, sidestepping the dismiss-it problem
+ * entirely rather than trying to detect and click it.
  */
-export async function captureAllDevices(url: string): Promise<CaptureAllResult> {
+export async function captureAllDevices(url: string, storageStatePath?: string): Promise<CaptureAllResult> {
   const browser = await getBrowser();
   const context = await browser.newContext({
     locale: "en-US",
     timezoneId: "America/New_York",
     colorScheme: "light",
+    ...(storageStatePath ? { storageState: storageStatePath } : {}),
   });
 
   try {

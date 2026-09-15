@@ -79,6 +79,18 @@ export function projectBoardsDir(id: string): string {
   return path.join(projectDir(id), "boards");
 }
 
+/**
+ * Saved cookies/localStorage from an Assisted Setup session (a real,
+ * visible browser window the user clicks through cookie banners/promo
+ * popups/CAPTCHAs in themselves) — loaded into every subsequent automated
+ * capture's browser context for this project so the site sees an
+ * already-consented returning visitor instead of a fresh one. See
+ * lib/capture/assistedSetup.ts.
+ */
+export function projectConsentStatePath(id: string): string {
+  return path.join(projectDir(id), "consent-state.json");
+}
+
 export function backgroundsIndexPath(): string {
   return path.join(BACKGROUNDS_ROOT, "index.json");
 }

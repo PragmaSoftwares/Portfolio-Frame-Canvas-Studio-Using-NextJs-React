@@ -59,6 +59,7 @@ export async function POST(request: Request) {
     servicesDelivered: [...settings.standardServices],
     technologiesUsed: [],
     approvedPages: [{ slug: HOME_PAGE_SLUG, url: parsedUrl.toString(), label: "Home" }],
+    assistedSetupAt: null,
     createdAt: now,
     updatedAt: now,
   };

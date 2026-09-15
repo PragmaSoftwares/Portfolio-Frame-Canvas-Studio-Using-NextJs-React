@@ -3,7 +3,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { captureAllDevices, type DeviceCaptureBuffers } from "@/lib/capture/capture";
 import { CaptureError, friendlyCaptureMessage } from "@/lib/capture/errors";
-import { assertSafeId, assertSafeSlug, projectCaptureDeviceDir, type CaptureDevice } from "@/lib/storage/paths";
+import {
+  assertSafeId,
+  assertSafeSlug,
+  projectCaptureDeviceDir,
+  projectConsentStatePath,
+  type CaptureDevice,
+} from "@/lib/storage/paths";
 import { readProject, touchProject } from "@/lib/storage/projects";
 import { writePageCaptureMeta } from "@/lib/storage/captures";
 import type { PageCaptureMeta, DeviceCaptureFiles } from "@/types/capture";
@@ -77,7 +83,16 @@ export async function POST(request: Request) {
   await writePageCaptureMeta(baseMeta);
 
   try {
-    const captured = await captureAllDevices(page.url);
+    // Load this project's saved Assisted Setup consent state, if it has
+    // one — a returning, already-consented visitor typically never sees
+    // the cookie/promo banner at all, rather than needing it detected and
+    // dismissed on every capture.
+    const consentStatePath = projectConsentStatePath(projectId);
+    const hasConsentState = await fs
+      .access(consentStatePath)
+      .then(() => true)
+      .catch(() => false);
+    const captured = await captureAllDevices(page.url, hasConsentState ? consentStatePath : undefined);
 
     const [desktop, laptop, tablet, mobile] = await Promise.all([
       saveDevice(projectId, "desktop", pageSlug, captured.desktop),

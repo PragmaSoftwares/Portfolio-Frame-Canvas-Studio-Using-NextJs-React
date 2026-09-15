@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ProjectData, ApprovedPage } from "@/types/project";
@@ -10,6 +10,14 @@ import type { Board } from "@/types/board";
 const HOME_SLUG = "home";
 // Mirrors MAX_ADDITIONAL_PAGES in lib/storage/pages.ts (that module is server-only, imports fs).
 const MAX_ADDITIONAL_PAGES = 5;
+
+// Deliberately not toLocaleString() — its output depends on the runtime's
+// ambient locale/timezone, which differs between the Node server (SSR pass)
+// and the browser (hydration), causing a real hydration-mismatch error.
+// A manual, always-UTC format is identical in both environments.
+function formatAssistedSetupDate(iso: string): string {
+  return `${new Date(iso).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
 
 interface ProjectWorkspaceProps {
   project: ProjectData;
@@ -33,9 +41,69 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards }: Pr
   const [creatingBoard, setCreatingBoard] = useState(false);
   const [boardError, setBoardError] = useState<string | null>(null);
 
+  const [assistedSetupAt, setAssistedSetupAt] = useState(project.assistedSetupAt);
+  const [assistedSetupActive, setAssistedSetupActive] = useState(false);
+  const [assistedSetupBusy, setAssistedSetupBusy] = useState(false);
+  const [assistedSetupError, setAssistedSetupError] = useState<string | null>(null);
+  const [assistedSetupSaved, setAssistedSetupSaved] = useState(false);
+
   const additionalCount = pages.length - 1;
   const atPageLimit = additionalCount >= MAX_ADDITIONAL_PAGES;
   const busy = capturingSlug !== null || runningAll;
+
+  // Recovers the "a window is open, waiting for you" UI state after a page
+  // refresh — the session itself lives server-side, independent of this tab.
+  useEffect(() => {
+    fetch(`/api/projects/${project.id}/assisted-setup/status`)
+      .then((res) => res.json())
+      .then((data) => setAssistedSetupActive(Boolean(data.status?.active)))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleStartAssistedSetup() {
+    setAssistedSetupBusy(true);
+    setAssistedSetupError(null);
+    setAssistedSetupSaved(false);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/assisted-setup/start`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not open the browser window.");
+      setAssistedSetupActive(true);
+    } catch (err) {
+      setAssistedSetupError(err instanceof Error ? err.message : "Could not open the browser window.");
+    } finally {
+      setAssistedSetupBusy(false);
+    }
+  }
+
+  async function handleFinishAssistedSetup() {
+    setAssistedSetupBusy(true);
+    setAssistedSetupError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/assisted-setup/finish`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not save what you set up.");
+      setAssistedSetupActive(false);
+      setAssistedSetupAt(data.savedAt);
+      setAssistedSetupSaved(true);
+    } catch (err) {
+      setAssistedSetupError(err instanceof Error ? err.message : "Could not save what you set up.");
+    } finally {
+      setAssistedSetupBusy(false);
+    }
+  }
+
+  async function handleCancelAssistedSetup() {
+    setAssistedSetupBusy(true);
+    setAssistedSetupError(null);
+    try {
+      await fetch(`/api/projects/${project.id}/assisted-setup/cancel`, { method: "POST" });
+    } finally {
+      setAssistedSetupActive(false);
+      setAssistedSetupBusy(false);
+    }
+  }
 
   async function captureOne(slug: string) {
     setCapturingSlug(slug);
@@ -197,6 +265,61 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards }: Pr
             >
               {runningAll ? "Capturing all…" : "Capture all pages"}
             </button>
+          </div>
+
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-slate-200">Assisted setup</p>
+                <p className="text-xs text-slate-500">
+                  Seeing cookie banners, promo popups, or a security check in your captures? Open this project in
+                  a real browser window, click through them yourself once — future captures will skip them too.
+                </p>
+                {assistedSetupAt && !assistedSetupActive && (
+                  <p className="mt-1 text-xs text-slate-600">Last set up {formatAssistedSetupDate(assistedSetupAt)}</p>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {assistedSetupActive ? (
+                  <>
+                    <button
+                      onClick={handleFinishAssistedSetup}
+                      disabled={assistedSetupBusy}
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {assistedSetupBusy ? "Saving…" : "Done — Save"}
+                    </button>
+                    <button
+                      onClick={handleCancelAssistedSetup}
+                      disabled={assistedSetupBusy}
+                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:border-slate-500 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleStartAssistedSetup}
+                    disabled={assistedSetupBusy}
+                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {assistedSetupBusy ? "Opening…" : "Open Assisted setup"}
+                  </button>
+                )}
+              </div>
+            </div>
+            {assistedSetupActive && (
+              <p className="mt-2 text-xs text-amber-400/80">
+                A browser window has opened on this machine — click through any banners there, then come back and
+                click &quot;Done — Save&quot;. Closing the window without clicking Done discards the session.
+              </p>
+            )}
+            {assistedSetupSaved && !assistedSetupActive && (
+              <p className="mt-2 text-xs text-emerald-400">
+                Saved — Recapture this project&apos;s pages to see it take effect.
+              </p>
+            )}
+            {assistedSetupError && <p className="mt-2 text-xs text-red-400">{assistedSetupError}</p>}
           </div>
 
           {pageError && (

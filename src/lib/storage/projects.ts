@@ -28,6 +28,7 @@ function migrateProject(raw: Record<string, unknown>): ProjectData {
   // Watermark moved from per-project to agency-wide (AgencySettings) — drop
   // the now-unused stored field from anything written before that change.
   delete raw.watermark;
+  if (raw.assistedSetupAt === undefined) raw.assistedSetupAt = null;
   return raw as unknown as ProjectData;
 }
 
@@ -80,6 +81,7 @@ export interface UpdateProjectPatch {
   logoPath?: string | null;
   servicesDelivered?: string[];
   technologiesUsed?: string[];
+  assistedSetupAt?: string | null;
 }
 
 export async function updateProject(id: string, patch: UpdateProjectPatch): Promise<ProjectData | null> {
