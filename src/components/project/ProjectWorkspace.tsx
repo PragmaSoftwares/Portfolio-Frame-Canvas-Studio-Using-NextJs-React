@@ -97,6 +97,21 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards }: Pr
     }
   }
 
+  async function handleEditHomeUrl(newUrl: string) {
+    const res = await fetch(`/api/projects/${project.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mainUrl: newUrl }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Could not update the homepage URL.");
+    // updateProject() on the server already syncs the "home" approvedPage's
+    // own url to match the new mainUrl — mirror that here so the row updates
+    // immediately instead of waiting on the router.refresh() below.
+    setPages((prev) => prev.map((p) => (p.slug === HOME_SLUG ? { ...p, url: data.project.mainUrl } : p)));
+    router.refresh();
+  }
+
   async function handleRemovePage(slug: string) {
     if (!window.confirm("Remove this page and its captured screenshots?")) return;
     setPageError(null);
@@ -201,6 +216,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards }: Pr
                 disabled={busy}
                 onCapture={() => captureOne(page.slug)}
                 onRemove={page.slug === HOME_SLUG ? undefined : () => handleRemovePage(page.slug)}
+                onEditUrl={page.slug === HOME_SLUG ? handleEditHomeUrl : undefined}
               />
             ))}
           </ul>
@@ -308,6 +324,7 @@ function PageRow({
   disabled,
   onCapture,
   onRemove,
+  onEditUrl,
 }: {
   projectId: string;
   page: ApprovedPage;
@@ -316,14 +333,80 @@ function PageRow({
   disabled: boolean;
   onCapture: () => void;
   onRemove?: () => void;
+  onEditUrl?: (newUrl: string) => Promise<void>;
 }) {
   const status = isCapturing ? "capturing" : capture?.status ?? "pending";
+  const [editingUrl, setEditingUrl] = useState(false);
+  const [urlDraft, setUrlDraft] = useState(page.url);
+  const [savingUrl, setSavingUrl] = useState(false);
+  const [urlError, setUrlError] = useState<string | null>(null);
+
+  async function handleSaveUrl() {
+    if (!onEditUrl) return;
+    setSavingUrl(true);
+    setUrlError(null);
+    try {
+      await onEditUrl(urlDraft.trim());
+      setEditingUrl(false);
+    } catch (err) {
+      setUrlError(err instanceof Error ? err.message : "Could not update the URL.");
+    } finally {
+      setSavingUrl(false);
+    }
+  }
 
   return (
     <li className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{page.label}</p>
-        <p className="truncate text-xs text-slate-500">{page.url}</p>
+        {editingUrl ? (
+          <div className="mt-1 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={urlDraft}
+                onChange={(e) => setUrlDraft(e.target.value)}
+                disabled={savingUrl}
+                autoFocus
+                className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 disabled:opacity-50"
+              />
+              <button
+                onClick={handleSaveUrl}
+                disabled={savingUrl || urlDraft.trim().length === 0}
+                className="rounded-lg bg-indigo-500 px-2.5 py-1.5 text-xs font-medium hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingUrl ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={() => {
+                  setEditingUrl(false);
+                  setUrlDraft(page.url);
+                  setUrlError(null);
+                }}
+                disabled={savingUrl}
+                className="text-xs text-slate-500 hover:text-slate-300 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+            {urlError && <p className="text-xs text-red-400">{urlError}</p>}
+            <p className="text-[11px] text-slate-500">
+              Existing captures and crops for this page won&apos;t update on their own — Recapture afterward.
+            </p>
+          </div>
+        ) : (
+          <p className="truncate text-xs text-slate-500">
+            {page.url}
+            {onEditUrl && (
+              <button
+                onClick={() => setEditingUrl(true)}
+                disabled={disabled}
+                className="ml-2 text-indigo-400 hover:text-indigo-300 disabled:opacity-50"
+              >
+                Edit
+              </button>
+            )}
+          </p>
+        )}
         {status === "ready" && capture?.images && (
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
             {/* Older captures (before the "laptop" device existed) won't have every
@@ -376,6 +459,11 @@ function PageRow({
           >
             Remove
           </button>
+        )}
+        {!onRemove && onEditUrl && (
+          <span className="text-xs text-slate-600" title="Every project needs exactly one homepage — edit its URL above instead of removing it.">
+            Main page
+          </span>
         )}
       </div>
     </li>
