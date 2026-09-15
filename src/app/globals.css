@@ -24,3 +24,14 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Browsers only give links a pointer cursor by default — a <button> is
+   `cursor: default` unless told otherwise, which is why plenty of real,
+   clickable buttons across the app haven't looked clickable. Set once,
+   globally, rather than adding cursor-pointer to every button individually.
+   Excluded for disabled buttons, which already carry their own
+   disabled:cursor-not-allowed utility class where that matters. */
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}

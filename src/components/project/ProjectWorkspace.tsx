@@ -135,6 +135,33 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
     }
   }
 
+  function handleCaptureAllClick() {
+    // Each page captures 4 devices sequentially (roughly 30-60s/page based
+    // on real runs) — with enough pages this is a genuinely long,
+    // uninterruptible commitment to trigger by accident.
+    const estimateMinutes = Math.max(1, Math.round(pages.length * 0.5));
+    const ok = window.confirm(
+      `Capture all ${pages.length} page${pages.length === 1 ? "" : "s"}? Each page takes roughly 30-60 seconds ` +
+        `(4 device shots each) — this could take about ${estimateMinutes} minute${estimateMinutes === 1 ? "" : "s"} ` +
+        `total, and can't be cancelled partway through.`
+    );
+    if (!ok) return;
+    captureAll();
+  }
+
+  function handleCaptureClick(slug: string) {
+    // Only "Recapture" (an already-ready page, about to be overwritten) is
+    // confirmed — a first-time "Capture" or a "Retry" after failure has
+    // nothing to lose, so no need to interrupt those with a prompt.
+    if (captures[slug]?.status === "ready") {
+      const label = pages.find((p) => p.slug === slug)?.label ?? "this page";
+      if (!window.confirm(`Recapture "${label}"? This replaces its existing screenshots and takes a little while.`)) {
+        return;
+      }
+    }
+    captureOne(slug);
+  }
+
   async function captureAll() {
     setRunningAll(true);
     for (const page of pages) {
@@ -253,7 +280,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
               Pages ({pages.length})
             </h2>
             <button
-              onClick={captureAll}
+              onClick={handleCaptureAllClick}
               disabled={busy}
               className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -331,7 +358,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
                 capture={captures[page.slug]}
                 isCapturing={capturingSlug === page.slug}
                 disabled={busy}
-                onCapture={() => captureOne(page.slug)}
+                onCapture={() => handleCaptureClick(page.slug)}
                 onRemove={page.slug === HOME_SLUG ? undefined : () => handleRemovePage(page.slug)}
                 onEditUrl={page.slug === HOME_SLUG ? handleEditHomeUrl : undefined}
               />
