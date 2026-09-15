@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { TextItem } from "@/types/board";
-import { textItemStyle } from "@/lib/board/textStyle";
+import { textBoxStyle, textContentStyle } from "@/lib/board/textStyle";
 
 interface TextBoxProps {
   item: TextItem;
@@ -10,8 +10,9 @@ interface TextBoxProps {
 /**
  * A plain (non-editable) rendering of a text item — used by the bare render
  * route Playwright screenshots for export. The live editor renders the same
- * styling (see textItemStyle) but on a contentEditable div instead, so an
- * export always matches what was last seen on the canvas.
+ * two-level styling (see textBoxStyle/textContentStyle) but with the inner
+ * div made contentEditable instead, so an export always matches what was
+ * last seen on the canvas.
  */
 export function TextBox({ item, style }: TextBoxProps) {
   return (
@@ -23,7 +24,9 @@ export function TextBox({ item, style }: TextBoxProps) {
         ...style,
       }}
     >
-      <div style={textItemStyle(item)}>{item.text}</div>
+      <div style={textBoxStyle(item)}>
+        <div style={textContentStyle(item)}>{item.text}</div>
+      </div>
     </div>
   );
 }

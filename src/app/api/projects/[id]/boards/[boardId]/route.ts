@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { assertSafeId } from "@/lib/storage/paths";
 import { readBoard, updateBoard, deleteBoard, type BoardPatch } from "@/lib/storage/boards";
 import { readBackgroundImage } from "@/lib/storage/backgroundImages";
-import type { BackgroundFit, CanvasItem, FrameVariant, TextAlign } from "@/types/board";
+import type { BackgroundFit, CanvasItem, FrameVariant, TextAlign, TextTransform, VerticalAlign } from "@/types/board";
 import type { CropFit } from "@/types/review";
 
 export const runtime = "nodejs";
@@ -10,7 +10,9 @@ export const runtime = "nodejs";
 const FRAME_VARIANTS: FrameVariant[] = ["desktop", "laptop", "tablet", "mobile", "none"];
 const BACKGROUND_FITS: BackgroundFit[] = ["cover", "repeat", "stretch"];
 const CONTENT_FITS: CropFit[] = ["fit", "fill", "stretch"];
-const TEXT_ALIGNS: TextAlign[] = ["left", "center", "right"];
+const TEXT_ALIGNS: TextAlign[] = ["left", "center", "right", "justify"];
+const TEXT_TRANSFORMS: TextTransform[] = ["none", "uppercase", "lowercase", "capitalize"];
+const VERTICAL_ALIGNS: VerticalAlign[] = ["top", "middle", "bottom"];
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 function parseItems(raw: unknown): CanvasItem[] | null {
@@ -45,7 +47,13 @@ function parseItems(raw: unknown): CanvasItem[] | null {
         typeof e.align !== "string" ||
         !TEXT_ALIGNS.includes(e.align as TextAlign) ||
         typeof e.letterSpacing !== "number" ||
-        typeof e.lineHeight !== "number"
+        typeof e.lineHeight !== "number" ||
+        typeof e.textTransform !== "string" ||
+        !TEXT_TRANSFORMS.includes(e.textTransform as TextTransform) ||
+        typeof e.verticalAlign !== "string" ||
+        !VERTICAL_ALIGNS.includes(e.verticalAlign as VerticalAlign) ||
+        typeof e.opacity !== "number" ||
+        ("backgroundColor" in e && e.backgroundColor !== undefined && (typeof e.backgroundColor !== "string" || !HEX_COLOR_PATTERN.test(e.backgroundColor)))
       ) {
         return null;
       }
@@ -67,6 +75,10 @@ function parseItems(raw: unknown): CanvasItem[] | null {
         align: e.align as TextAlign,
         letterSpacing: e.letterSpacing,
         lineHeight: Math.max(0.1, e.lineHeight),
+        textTransform: e.textTransform as TextTransform,
+        verticalAlign: e.verticalAlign as VerticalAlign,
+        backgroundColor: typeof e.backgroundColor === "string" ? e.backgroundColor : undefined,
+        opacity: Math.min(1, Math.max(0, e.opacity)),
       });
       continue;
     }

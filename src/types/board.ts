@@ -7,7 +7,9 @@ export type BoardBackground = "dark" | "light" | "image";
 /** How an uploaded background image fills the canvas when it doesn't match the canvas's own aspect ratio. */
 export type BackgroundFit = "cover" | "repeat" | "stretch";
 
-export type TextAlign = "left" | "center" | "right";
+export type TextAlign = "left" | "center" | "right" | "justify";
+export type TextTransform = "none" | "uppercase" | "lowercase" | "capitalize";
+export type VerticalAlign = "top" | "middle" | "bottom";
 
 /** Fields shared by every kind of thing placeable on a board — position/size/layer, in the board's own fixed pixel space. */
 interface CanvasItemBase {
@@ -60,6 +62,17 @@ export interface TextItem extends CanvasItemBase {
   align: TextAlign;
   letterSpacing: number; // px
   lineHeight: number; // unitless multiplier, e.g. 1.2
+  textTransform: TextTransform;
+  // Where the text sits within its own box when the box is taller than the
+  // text needs — meaningless once the text itself overflows the box, same
+  // as contentY is meaningless for a "stretch" screenshot.
+  verticalAlign: VerticalAlign;
+  // A plate behind the text spanning the whole box (not just tight around
+  // each line) — undefined/absent means no plate at all, not "transparent
+  // stored as a color". Alpha isn't expressible via <input type=color>, so
+  // fading it uses the separate `opacity` field instead.
+  backgroundColor?: string; // hex
+  opacity: number; // 0-1, applied to the whole item (text + background plate together)
 }
 
 export type CanvasItem = ScreenshotItem | TextItem;

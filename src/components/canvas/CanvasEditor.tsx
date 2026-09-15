@@ -10,9 +10,20 @@ import { backgroundStyleFor, watermarkStyle } from "@/components/board/BoardCanv
 import { DEFAULT_CROP } from "@/types/review";
 import type { CropFit } from "@/types/review";
 import { defaultFrameWidth, frameOuterHeight, defaultFrameForDevice, defaultContentFit } from "@/lib/board/frameSize";
-import { textItemStyle } from "@/lib/board/textStyle";
+import { textBoxStyle, textContentStyle } from "@/lib/board/textStyle";
 import { FONT_FAMILY_NAMES, cssFontFamily } from "@/lib/fonts";
-import type { Board, BackgroundFit, BoardBackground, CanvasItem, ScreenshotItem, TextItem, TextAlign, FrameVariant } from "@/types/board";
+import type {
+  Board,
+  BackgroundFit,
+  BoardBackground,
+  CanvasItem,
+  ScreenshotItem,
+  TextItem,
+  TextAlign,
+  TextTransform,
+  VerticalAlign,
+  FrameVariant,
+} from "@/types/board";
 import type { BackgroundImage } from "@/types/backgroundImage";
 import type { SelectionWithPage } from "@/lib/storage/review";
 
@@ -44,7 +55,14 @@ const CONTENT_FIT_OPTIONS: { value: CropFit; label: string; description: string 
   { value: "fill", label: "Cover", description: "Fill the frame, cropping overflow" },
   { value: "stretch", label: "Stretch", description: "Fill exactly, may distort" },
 ];
-const TEXT_ALIGN_OPTIONS: TextAlign[] = ["left", "center", "right"];
+const TEXT_ALIGN_OPTIONS: TextAlign[] = ["left", "center", "right", "justify"];
+const TEXT_TRANSFORM_OPTIONS: { value: TextTransform; label: string }[] = [
+  { value: "none", label: "Normal" },
+  { value: "uppercase", label: "UPPERCASE" },
+  { value: "lowercase", label: "lowercase" },
+  { value: "capitalize", label: "Capitalize" },
+];
+const VERTICAL_ALIGN_OPTIONS: VerticalAlign[] = ["top", "middle", "bottom"];
 const DEFAULT_TEXT_WIDTH = 480;
 const DEFAULT_TEXT_HEIGHT = 100;
 
@@ -271,6 +289,9 @@ export function CanvasEditor({
       align: "left",
       letterSpacing: 0,
       lineHeight: 1.2,
+      textTransform: "none",
+      verticalAlign: "top",
+      opacity: 1,
     };
     setItems((prev) => [...prev, item]);
     setSelectedId(item.id);
@@ -808,21 +829,23 @@ export function CanvasEditor({
                 <div style={{ width: "100%", height: "100%", overflow: item.kind === "text" ? "visible" : "hidden" }}>
                   <div style={{ transform: `scale(${EDITOR_SCALE})`, transformOrigin: "top left", width: item.width, height: item.height }}>
                     {item.kind === "text" ? (
-                      <div
-                        ref={(el) => {
-                          textRefs.current[item.id] = el;
-                        }}
-                        contentEditable={editingTextId === item.id}
-                        suppressContentEditableWarning
-                        onDoubleClick={() => setEditingTextId(item.id)}
-                        onBlur={(e) => {
-                          if (editingTextId !== item.id) return;
-                          updateTextItem(item.id, { text: e.currentTarget.innerText });
-                          setEditingTextId(null);
-                        }}
-                        style={{ ...textItemStyle(item), cursor: editingTextId === item.id ? "text" : "inherit" }}
-                      >
-                        {item.text}
+                      <div style={textBoxStyle(item)} onDoubleClick={() => setEditingTextId(item.id)}>
+                        <div
+                          ref={(el) => {
+                            textRefs.current[item.id] = el;
+                          }}
+                          contentEditable={editingTextId === item.id}
+                          suppressContentEditableWarning
+                          onDoubleClick={() => setEditingTextId(item.id)}
+                          onBlur={(e) => {
+                            if (editingTextId !== item.id) return;
+                            updateTextItem(item.id, { text: e.currentTarget.innerText });
+                            setEditingTextId(null);
+                          }}
+                          style={{ ...textContentStyle(item), cursor: editingTextId === item.id ? "text" : "inherit" }}
+                        >
+                          {item.text}
+                        </div>
                       </div>
                     ) : (
                       (() => {
@@ -983,6 +1006,76 @@ export function CanvasEditor({
                         value={selectedItem.lineHeight}
                         onChange={(e) => updateTextItem(selectedItem.id, { lineHeight: Math.max(0.1, Number(e.target.value)) })}
                         className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-slate-400">Text case</label>
+                    <select
+                      value={selectedItem.textTransform}
+                      onChange={(e) => updateTextItem(selectedItem.id, { textTransform: e.target.value as TextTransform })}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                    >
+                      {TEXT_TRANSFORM_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-slate-400">Vertical align</label>
+                    <div className="flex gap-1.5">
+                      {VERTICAL_ALIGN_OPTIONS.map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => updateTextItem(selectedItem.id, { verticalAlign: v })}
+                          className={`flex-1 rounded-lg border px-3 py-2 text-xs capitalize ${
+                            selectedItem.verticalAlign === v
+                              ? "border-indigo-500 bg-indigo-500/10 text-indigo-300"
+                              : "border-slate-700 text-slate-400 hover:border-slate-500"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Where the text sits if you resize the box taller than the text itself needs.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-slate-400">Opacity (%)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={Math.round(selectedItem.opacity * 100)}
+                        onChange={(e) =>
+                          updateTextItem(selectedItem.id, { opacity: Math.min(1, Math.max(0, Number(e.target.value) / 100)) })
+                        }
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-slate-400">Background</label>
+                        {selectedItem.backgroundColor && (
+                          <button
+                            onClick={() => updateTextItem(selectedItem.id, { backgroundColor: undefined })}
+                            className="text-[11px] text-slate-500 hover:text-slate-300"
+                          >
+                            None
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="color"
+                        value={selectedItem.backgroundColor ?? "#000000"}
+                        onChange={(e) => updateTextItem(selectedItem.id, { backgroundColor: e.target.value })}
+                        title={selectedItem.backgroundColor ? undefined : "Pick a color to add a background plate behind the text"}
+                        className="h-9 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900 p-0.5"
                       />
                     </div>
                   </div>
