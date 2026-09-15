@@ -6,12 +6,13 @@ import { nanoid } from "nanoid";
 import { Rnd } from "react-rnd";
 import { DeviceFrame } from "@/components/board/DeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
-import { backgroundStyleFor } from "@/components/board/BoardCanvas";
+import { backgroundStyleFor, watermarkStyle } from "@/components/board/BoardCanvas";
 import { DEFAULT_CROP } from "@/types/review";
 import type { CropFit } from "@/types/review";
 import { defaultFrameWidth, frameOuterHeight, defaultFrameForDevice, defaultContentFit } from "@/lib/board/frameSize";
 import type { Board, BackgroundFit, BoardBackground, CanvasItem, FrameVariant } from "@/types/board";
 import type { BackgroundImage } from "@/types/backgroundImage";
+import type { ProjectWatermark } from "@/types/project";
 import type { SelectionWithPage } from "@/lib/storage/review";
 
 interface CanvasEditorProps {
@@ -20,6 +21,10 @@ interface CanvasEditorProps {
   board: Board;
   selections: SelectionWithPage[];
   backgroundImages: BackgroundImage[];
+  watermark: ProjectWatermark;
+  watermarkColor: string;
+  watermarkLineWidth: number;
+  watermarkFontSize: number;
 }
 
 const EDITOR_SCALE = 0.36;
@@ -170,6 +175,10 @@ export function CanvasEditor({
   board: initialBoard,
   selections,
   backgroundImages: initialBackgroundImages,
+  watermark,
+  watermarkColor,
+  watermarkLineWidth,
+  watermarkFontSize,
 }: CanvasEditorProps) {
   const [name, setName] = useState(initialBoard.name);
   const [background, setBackground] = useState<BoardBackground>(initialBoard.background);
@@ -712,6 +721,9 @@ export function CanvasEditor({
                 </div>
               </Rnd>
             ))}
+            {watermark.visible && watermark.text.trim().length > 0 && (
+              <div style={watermarkStyle(watermark.text, watermarkColor, watermarkLineWidth, watermarkFontSize, EDITOR_SCALE)} />
+            )}
           </div>
         </main>
 

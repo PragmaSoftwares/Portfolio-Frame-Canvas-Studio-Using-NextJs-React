@@ -6,8 +6,11 @@ import type { AgencySettings } from "@/types/settings";
 const DEFAULT_SETTINGS: AgencySettings = {
   agencyName: "",
   agencyLogoPath: null,
-  defaultWatermarkText: "",
+  defaultWatermarkText: "SAMPLE",
   defaultWatermarkVisible: false,
+  watermarkColor: "#94a3b8",
+  watermarkLineWidth: 1,
+  watermarkFontSize: 14,
   defaultBackgroundLight: "#f8fafc",
   defaultBackgroundDark: "#0f172a",
   defaultFontFamily: "System UI",

@@ -13,6 +13,11 @@ interface BoardCanvasProps {
   background?: BoardBackground;
   backgroundImageUrl?: string | null;
   backgroundFit?: BackgroundFit;
+  watermarkEnabled?: boolean;
+  watermarkText?: string;
+  watermarkColor?: string;
+  watermarkLineWidth?: number;
+  watermarkFontSize?: number;
 }
 
 // Matches the studio-backdrop photos the user supplied as the reference look
@@ -62,6 +67,65 @@ export function backgroundStyleFor(
   return { background: background === "light" ? LIGHT_BACKGROUND : DARK_BACKGROUND };
 }
 
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * A repeating diagonal "proof" watermark — two crossing diagonal lines plus
+ * the watermark text, rotated to follow one of them, tiled edge-to-edge via
+ * CSS background-repeat so it covers the whole canvas and can't be cropped
+ * or copy-pasted out of a single spot. Built as one SVG tile (not one big
+ * SVG covering the whole canvas) so it repeats crisply at any canvas size
+ * without regenerating markup per size. Color/line width/text size are the
+ * agency-wide style (Settings); whether it shows at all and what text it
+ * says are per-project (Customize) — see ProjectWatermark.
+ */
+export function watermarkStyle(
+  text: string,
+  color: string,
+  lineWidth: number,
+  fontSize: number,
+  tileScale = 1
+): CSSProperties {
+  // Tile size scales with text length and font size so longer watermark text
+  // doesn't get clipped and the repeat spacing stays proportional. `tileScale`
+  // (default 1, i.e. full export resolution) shrinks the whole tile — text,
+  // lines, and spacing together — for a scaled-down editor preview, the same
+  // way backgroundStyleFor's own tileScale does for a repeating background
+  // image; otherwise the pattern would look artificially oversized in the
+  // editor compared to the real export.
+  const scaledFontSize = Math.max(4, fontSize * tileScale);
+  const scaledLineWidth = Math.max(0.25, lineWidth * tileScale);
+  const tile = Math.max(40, Math.round(scaledFontSize * (text.length * 0.6 + 6)));
+  const half = tile / 2;
+  const safeText = escapeXml(text);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${tile}" height="${tile}">
+    <line x1="0" y1="0" x2="${tile}" y2="${tile}" stroke="${color}" stroke-width="${scaledLineWidth}" />
+    <line x1="0" y1="${tile}" x2="${tile}" y2="0" stroke="${color}" stroke-width="${scaledLineWidth}" />
+    <text x="${half}" y="${half}" fill="${color}" font-size="${scaledFontSize}" font-family="sans-serif" font-weight="600" letter-spacing="1" text-anchor="middle" dominant-baseline="middle" transform="rotate(-45 ${half} ${half})">${safeText}</text>
+  </svg>`;
+  return {
+    position: "absolute",
+    inset: 0,
+    // Placed items carry their own explicit z-index (CanvasItem.zIndex), and
+    // any sibling with a positive z-index stacks above one left at the
+    // default "auto" regardless of DOM order — so without an explicit,
+    // deliberately-huge z-index here, the watermark would end up buried
+    // under items instead of sitting on top of all of them as a watermark
+    // needs to (unremovable by just moving/layering items around it).
+    zIndex: 999_999,
+    pointerEvents: "none",
+    backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+    backgroundRepeat: "repeat",
+    backgroundSize: `${tile}px ${tile}px`,
+  };
+}
+
 /**
  * The fixed-size export surface (2000x1500 by default; a board may request
  * different dimensions). This element (and only this element) is what
@@ -74,6 +138,11 @@ export function BoardCanvas({
   background = "dark",
   backgroundImageUrl,
   backgroundFit = "cover",
+  watermarkEnabled = false,
+  watermarkText = "SAMPLE",
+  watermarkColor = "#94a3b8",
+  watermarkLineWidth = 1,
+  watermarkFontSize = 14,
 }: BoardCanvasProps) {
   return (
     <div
@@ -90,6 +159,12 @@ export function BoardCanvas({
       }}
     >
       {children}
+      {/* Rendered after children (and unclickable) so it always sits on top of
+          every placed item, the way a proof watermark needs to — otherwise a
+          framed screenshot could just cover it up. */}
+      {watermarkEnabled && watermarkText.trim().length > 0 && (
+        <div style={watermarkStyle(watermarkText, watermarkColor, watermarkLineWidth, watermarkFontSize)} />
+      )}
     </div>
   );
 }

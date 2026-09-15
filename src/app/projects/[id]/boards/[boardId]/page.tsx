@@ -3,6 +3,7 @@ import { readProject } from "@/lib/storage/projects";
 import { readBoard } from "@/lib/storage/boards";
 import { listAllSelections } from "@/lib/storage/review";
 import { listBackgroundImages } from "@/lib/storage/backgroundImages";
+import { readSettings } from "@/lib/storage/settings";
 import { CanvasEditor } from "@/components/canvas/CanvasEditor";
 
 interface BoardPageProps {
@@ -19,6 +20,7 @@ export default async function BoardPage({ params }: BoardPageProps) {
 
   const selections = await listAllSelections(id, project.approvedPages);
   const backgroundImages = await listBackgroundImages();
+  const settings = await readSettings();
 
   return (
     <CanvasEditor
@@ -27,6 +29,10 @@ export default async function BoardPage({ params }: BoardPageProps) {
       board={board}
       selections={selections}
       backgroundImages={backgroundImages}
+      watermark={project.watermark}
+      watermarkColor={settings.watermarkColor}
+      watermarkLineWidth={settings.watermarkLineWidth}
+      watermarkFontSize={settings.watermarkFontSize}
     />
   );
 }

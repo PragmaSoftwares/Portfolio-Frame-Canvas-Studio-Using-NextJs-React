@@ -15,6 +15,9 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [agencyLogoPath, setAgencyLogoPath] = useState(initialSettings.agencyLogoPath ?? "");
   const [defaultWatermarkText, setDefaultWatermarkText] = useState(initialSettings.defaultWatermarkText);
   const [defaultWatermarkVisible, setDefaultWatermarkVisible] = useState(initialSettings.defaultWatermarkVisible);
+  const [watermarkColor, setWatermarkColor] = useState(initialSettings.watermarkColor);
+  const [watermarkLineWidth, setWatermarkLineWidth] = useState(initialSettings.watermarkLineWidth);
+  const [watermarkFontSize, setWatermarkFontSize] = useState(initialSettings.watermarkFontSize);
   const [defaultBackgroundLight, setDefaultBackgroundLight] = useState(initialSettings.defaultBackgroundLight);
   const [defaultBackgroundDark, setDefaultBackgroundDark] = useState(initialSettings.defaultBackgroundDark);
   const [defaultFontFamily, setDefaultFontFamily] = useState(initialSettings.defaultFontFamily);
@@ -38,6 +41,9 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
           agencyLogoPath: agencyLogoPath || null,
           defaultWatermarkText,
           defaultWatermarkVisible,
+          watermarkColor,
+          watermarkLineWidth,
+          watermarkFontSize,
           defaultBackgroundLight,
           defaultBackgroundDark,
           defaultFontFamily,
@@ -106,6 +112,43 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
             />
             Show watermark by default on new projects
           </label>
+
+          <div className="grid grid-cols-3 gap-4">
+            <Field label="Watermark color">
+              <input
+                type="color"
+                value={watermarkColor}
+                onChange={(e) => setWatermarkColor(e.target.value)}
+                className="h-10 w-full rounded-lg border border-slate-700 bg-slate-900"
+              />
+            </Field>
+            <Field label="Line width (px)">
+              <input
+                type="number"
+                min={0.5}
+                max={10}
+                step={0.5}
+                value={watermarkLineWidth}
+                onChange={(e) => setWatermarkLineWidth(Number(e.target.value))}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
+              />
+            </Field>
+            <Field label="Text size (px)">
+              <input
+                type="number"
+                min={8}
+                max={72}
+                step={1}
+                value={watermarkFontSize}
+                onChange={(e) => setWatermarkFontSize(Number(e.target.value))}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
+              />
+            </Field>
+          </div>
+          <p className="-mt-2 text-xs text-slate-500">
+            Applies to the repeating diagonal watermark pattern on every board where the watermark is on — this is
+            the shared style, not just a per-project starting point.
+          </p>
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Default light background">

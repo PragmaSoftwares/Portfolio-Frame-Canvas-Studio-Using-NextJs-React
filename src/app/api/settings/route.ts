@@ -24,6 +24,17 @@ function asStringArray(value: unknown, fallback: string[]): string[] {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+function asHexColor(value: unknown, fallback: string): string {
+  return typeof value === "string" && HEX_COLOR_PATTERN.test(value) ? value : fallback;
+}
+
+function asClampedNumber(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
 export async function PUT(request: Request) {
   let body: unknown;
   try {
@@ -43,6 +54,9 @@ export async function PUT(request: Request) {
       typeof record.defaultWatermarkVisible === "boolean"
         ? record.defaultWatermarkVisible
         : current.defaultWatermarkVisible,
+    watermarkColor: asHexColor(record.watermarkColor, current.watermarkColor),
+    watermarkLineWidth: asClampedNumber(record.watermarkLineWidth, current.watermarkLineWidth, 0.5, 10),
+    watermarkFontSize: asClampedNumber(record.watermarkFontSize, current.watermarkFontSize, 8, 72),
     defaultBackgroundLight: asString(record.defaultBackgroundLight, current.defaultBackgroundLight),
     defaultBackgroundDark: asString(record.defaultBackgroundDark, current.defaultBackgroundDark),
     defaultFontFamily: asString(record.defaultFontFamily, current.defaultFontFamily),

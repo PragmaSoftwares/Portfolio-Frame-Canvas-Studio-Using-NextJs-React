@@ -1,6 +1,8 @@
 import { readBoard } from "@/lib/storage/boards";
+import { readProject } from "@/lib/storage/projects";
 import { readPageSelections } from "@/lib/storage/review";
 import { readBackgroundImage } from "@/lib/storage/backgroundImages";
+import { readSettings } from "@/lib/storage/settings";
 import { BoardCanvas } from "@/components/board/BoardCanvas";
 import { DeviceFrame } from "@/components/board/DeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
@@ -29,6 +31,11 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
   if (!board) {
     return <ErrorMessage>Board &quot;{boardId}&quot; was not found.</ErrorMessage>;
   }
+  const project = await readProject(projectId);
+  if (!project) {
+    return <ErrorMessage>Project &quot;{projectId}&quot; was not found.</ErrorMessage>;
+  }
+  const settings = await readSettings();
 
   const backgroundImage = board.backgroundImageId ? await readBackgroundImage(board.backgroundImageId) : null;
   const backgroundImageUrl = backgroundImage ? `/api/media/backgrounds/${backgroundImage.filename}` : null;
@@ -61,6 +68,11 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
       background={board.background}
       backgroundImageUrl={backgroundImageUrl}
       backgroundFit={board.backgroundFit}
+      watermarkEnabled={project.watermark.visible}
+      watermarkText={project.watermark.text}
+      watermarkColor={settings.watermarkColor}
+      watermarkLineWidth={settings.watermarkLineWidth}
+      watermarkFontSize={settings.watermarkFontSize}
     >
       {resolvedItems.map((resolved) => {
         if (!resolved) return null;
