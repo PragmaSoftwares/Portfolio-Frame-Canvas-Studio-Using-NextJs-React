@@ -63,3 +63,18 @@ button:not(:disabled),
 [role="button"]:not(:disabled) {
   cursor: pointer;
 }
+
+/* Shown only on touch-primary devices — a hand-written media query rather
+   than Tailwind's pointer-coarse: variant, which (despite being present in
+   Tailwind's own source) wasn't actually being compiled into this project's
+   output for reasons not worth chasing further; verified by inspecting the
+   served CSS directly. Plain CSS is guaranteed correct regardless. */
+.touch-notice {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .touch-notice {
+    display: block;
+  }
+}

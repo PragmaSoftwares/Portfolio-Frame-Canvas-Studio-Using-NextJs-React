@@ -436,6 +436,18 @@ export function CanvasEditor({
 
   return (
     <div className="flex h-screen flex-col bg-slate-950 text-slate-100">
+      {/* Shown only on touch-primary devices (see .touch-notice in
+          globals.css) — pure CSS, no JS/hydration risk. Precise drag/
+          resize/layer composition genuinely doesn't work well on touch
+          (placing a screenshot from the library uses the native HTML5
+          drag-and-drop API, which no mobile browser fires from a touch
+          gesture at all) — this sets expectations instead of letting
+          someone think the editor is just broken. */}
+      <div className="touch-notice shrink-0 border-b border-amber-900/60 bg-amber-950/40 px-6 py-3 text-sm text-amber-200">
+        This editor is built for a desktop browser with a mouse — some interactions (like dragging a screenshot
+        onto the canvas) need precise pointer control that touch screens can&apos;t provide yet. For now, build
+        boards on a desktop; touch support may come later.
+      </div>
       <header className="flex items-center justify-between gap-4 border-b border-slate-800 px-6 py-3">
         <div className="flex items-center gap-4">
           <Link href={`/projects/${projectId}`} className="text-xs text-slate-500 hover:text-slate-300">
