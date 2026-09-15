@@ -10,6 +10,25 @@ interface ProjectDashboardProps {
   initialProjects: ProjectData[];
 }
 
+// A short, fixed palette of per-card accent gradients, picked deterministically
+// from the project's own id — gives each card a distinct identity color at a
+// glance (like a real portfolio gallery) without needing per-project config,
+// and stays stable across reloads since it's derived, not random.
+const CARD_ACCENTS = [
+  "from-indigo-500 to-violet-500",
+  "from-violet-500 to-fuchsia-500",
+  "from-sky-500 to-indigo-500",
+  "from-emerald-500 to-teal-500",
+  "from-amber-500 to-orange-500",
+  "from-rose-500 to-pink-500",
+];
+
+function accentFor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return CARD_ACCENTS[hash % CARD_ACCENTS.length];
+}
+
 export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -72,45 +91,60 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-6 py-12">
-      <div className="mx-auto max-w-4xl space-y-8">
-        <header className="flex items-start justify-between gap-4">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-400">
-              Portfolio Frame Canvas Studio
-            </p>
-            <h1 className="text-2xl font-semibold">Portfolio projects</h1>
-            <p className="text-slate-400 text-sm">
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
+      {/* Ambient glow — purely decorative, sits behind everything else. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-48 left-1/2 h-140 w-225 -translate-x-1/2 rounded-full bg-linear-to-br from-indigo-600/25 via-violet-600/10 to-transparent blur-3xl"
+      />
+
+      <div className="relative mx-auto max-w-5xl space-y-10 px-6 py-12">
+        <header className="flex flex-wrap items-start justify-between gap-6">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2.5">
+              {/* A small "framed screen" mark echoing the app's own device
+                  frames — brand identity, not just a text label. */}
+              <span className="flex h-7 w-9 shrink-0 items-center justify-center rounded-md border-2 border-indigo-400/70 bg-slate-900">
+                <span className="h-2.5 w-4 rounded-sm bg-linear-to-br from-indigo-400 to-fuchsia-400" />
+              </span>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                Portfolio Frame Canvas Studio
+              </p>
+            </div>
+            <h1 className="text-gradient-accent text-3xl font-semibold tracking-tight">Portfolio projects</h1>
+            <p className="max-w-md text-sm text-slate-400">
               Create a project for each website, capture it, and export a portfolio board.
             </p>
           </div>
-          <TopNav />
+          <div className="flex items-center gap-4">
+            <TopNav />
+            <Link
+              href="/projects/new"
+              className="bg-gradient-accent glow-accent rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5"
+            >
+              + New project
+            </Link>
+          </div>
         </header>
 
-        <div className="flex justify-end">
-          <Link
-            href="/projects/new"
-            className="rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-medium hover:bg-indigo-400"
-          >
-            + New project
-          </Link>
-        </div>
-
         {error && (
-          <div className="rounded-lg border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">
-            {error}
-          </div>
+          <div className="rounded-xl border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">{error}</div>
         )}
 
         {initialProjects.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-800 px-6 py-12 text-center text-sm text-slate-500">
+          <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 px-6 py-16 text-center text-sm text-slate-500">
             No projects yet. Create your first one to get started.
           </div>
         ) : (
-          <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
+          <ul className="grid gap-4 sm:grid-cols-2">
             {initialProjects.map((project) => (
-              <li key={project.id} className="flex items-center justify-between gap-4 px-5 py-4">
-                <div className="min-w-0 flex-1">
+              <li
+                key={project.id}
+                className="group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40 p-5 transition hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-xl hover:shadow-indigo-950/40"
+              >
+                <div className={`absolute inset-x-0 top-0 h-1 bg-linear-to-r ${accentFor(project.id)}`} />
+
+                <div className="min-w-0">
                   {renamingId === project.id ? (
                     <div className="flex items-center gap-2">
                       <input
@@ -121,31 +155,37 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
                           if (e.key === "Enter") handleRename(project.id);
                           if (e.key === "Escape") setRenamingId(null);
                         }}
-                        className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm outline-none focus:border-indigo-500"
+                        className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-sm outline-none focus:border-indigo-500"
                       />
                       <button
                         onClick={() => handleRename(project.id)}
                         disabled={busyId === project.id}
-                        className="text-xs text-emerald-400 hover:text-emerald-300"
+                        className="shrink-0 text-xs font-medium text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
                       >
                         Save
                       </button>
-                      <button onClick={() => setRenamingId(null)} className="text-xs text-slate-500 hover:text-slate-300">
+                      <button
+                        onClick={() => setRenamingId(null)}
+                        className="shrink-0 text-xs text-slate-500 hover:text-slate-300"
+                      >
                         Cancel
                       </button>
                     </div>
                   ) : (
-                    <Link href={`/projects/${project.id}`} className="truncate font-medium hover:text-indigo-400">
+                    <Link
+                      href={`/projects/${project.id}`}
+                      className="block truncate text-base font-semibold text-slate-100 hover:text-indigo-300"
+                    >
                       {project.name}
                     </Link>
                   )}
-                  <p className="truncate text-xs text-slate-500">
+                  <p className="mt-1 truncate text-xs text-slate-500">
                     {project.mainUrl}
                     {project.category ? ` · ${project.category}` : ""}
                   </p>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-3 text-xs">
+                <div className="mt-4 flex items-center gap-4 border-t border-slate-800/80 pt-3 text-xs">
                   <button
                     onClick={() => {
                       setRenamingId(project.id);
@@ -166,7 +206,7 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
                   <button
                     onClick={() => handleDelete(project.id, project.name)}
                     disabled={busyId === project.id}
-                    className="text-red-400 hover:text-red-300 disabled:opacity-50"
+                    className="ml-auto text-red-400/90 hover:text-red-300 disabled:opacity-50"
                   >
                     Delete
                   </button>
