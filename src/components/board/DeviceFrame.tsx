@@ -15,33 +15,57 @@ interface DeviceFrameProps {
  * Real device-frame PNGs (provided by the user, transparent background, a
  * genuine see-through cutout where the screen goes — verified pixel-for-pixel
  * against each file's alpha channel). `hole` is the screen cutout's bounding
- * box in the source image's own pixel coordinates; `aspect` is the full
- * image's height/width ratio, used to size the frame from just a width.
+ * box in the source image's own pixel coordinates, found by scanning outward
+ * from the image's center along its 4 cardinal axes — accurate for the flat
+ * edges, but a rounded-corner screen curves inward *before* reaching that
+ * bounding box's own (square) corners. `cornerRadiusFraction`/`insetFraction`
+ * (of hole width) shrink the rendered content slightly and round its corners
+ * so they always land inside the true curve, never poking past it into the
+ * bezel. `imageWidth`/`imageHeight` are the full source image's own pixel
+ * size, used to size the frame from just a width.
  */
-const FRAME_ASSETS: Record<DeviceFrameProps["variant"], { src: string; imageWidth: number; imageHeight: number; hole: { left: number; top: number; width: number; height: number } }> = {
+const FRAME_ASSETS: Record<
+  DeviceFrameProps["variant"],
+  {
+    src: string;
+    imageWidth: number;
+    imageHeight: number;
+    hole: { left: number; top: number; width: number; height: number };
+    cornerRadiusFraction: number;
+    insetFraction: number;
+  }
+> = {
   desktop: {
     src: "/frames/desktop.png",
     imageWidth: 2560,
     imageHeight: 1940,
     hole: { left: 206, top: 21, width: 2152, height: 1249 },
+    cornerRadiusFraction: 0.015,
+    insetFraction: 0.006,
   },
   laptop: {
     src: "/frames/laptop.png",
     imageWidth: 2940,
     imageHeight: 2043,
     hole: { left: 297, top: 75, width: 2391, height: 1621 },
+    cornerRadiusFraction: 0.015,
+    insetFraction: 0.006,
   },
   tablet: {
     src: "/frames/tablet.png",
     imageWidth: 1797,
     imageHeight: 2231,
     hole: { left: 167, top: 105, width: 1502, height: 1974 },
+    cornerRadiusFraction: 0.045,
+    insetFraction: 0.012,
   },
   mobile: {
     src: "/frames/mobile.png",
     imageWidth: 1292,
     imageHeight: 2301,
     hole: { left: 182, top: 109, width: 968, height: 1999 },
+    cornerRadiusFraction: 0.1,
+    insetFraction: 0.018,
   },
 };
 
@@ -88,10 +112,29 @@ export function DeviceFrame({ variant, src, width, crop = DEFAULT_CROP, style }:
   const holeWidth = Math.round(asset.hole.width * scale);
   const holeHeight = Math.round(asset.hole.height * scale);
 
+  // Inset slightly and round the corners so the content's square corners
+  // never poke past the screen's real rounded curve (see FRAME_ASSETS doc).
+  const inset = Math.max(1, Math.round(holeWidth * asset.insetFraction));
+  const cornerRadius = Math.max(1, Math.round(holeWidth * asset.cornerRadiusFraction));
+  const contentLeft = holeLeft + inset;
+  const contentTop = holeTop + inset;
+  const contentWidth = Math.max(1, holeWidth - inset * 2);
+  const contentHeight = Math.max(1, holeHeight - inset * 2);
+
   return (
     <div style={{ position: "absolute", width, height, ...style }}>
-      <div style={{ position: "absolute", left: holeLeft, top: holeTop, width: holeWidth, height: holeHeight, overflow: "hidden" }}>
-        <ScreenContent src={src} crop={crop} width={holeWidth} height={holeHeight} />
+      <div
+        style={{
+          position: "absolute",
+          left: contentLeft,
+          top: contentTop,
+          width: contentWidth,
+          height: contentHeight,
+          borderRadius: cornerRadius,
+          overflow: "hidden",
+        }}
+      >
+        <ScreenContent src={src} crop={crop} width={contentWidth} height={contentHeight} />
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
