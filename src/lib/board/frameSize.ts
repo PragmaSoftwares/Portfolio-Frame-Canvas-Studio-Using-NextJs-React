@@ -1,5 +1,6 @@
 import { frameImageHeight } from "@/components/board/DeviceFrame";
 import type { FrameVariant } from "@/types/board";
+import type { CropFit } from "@/types/review";
 
 /**
  * Outer frame height for a given width, mirroring DeviceFrame's own layout
@@ -41,4 +42,16 @@ export function defaultFrameWidth(frame: FrameVariant): number {
 
 export function defaultFrameForDevice(sourceDevice: "desktop" | "tablet" | "mobile"): FrameVariant {
   return sourceDevice;
+}
+
+/**
+ * A device frame's fixed screen shape rarely matches an arbitrary crop's own
+ * aspect ratio, so framed items default to showing everything ("fit" /
+ * contain, letterboxed if needed); a frameless card defaults to filling its
+ * box ("fill" / cover), matching its old fixed behavior. Used both by the
+ * canvas editor and the render route, so a new item's default and the
+ * exported result always agree without the user having to pick anything.
+ */
+export function defaultContentFit(frame: FrameVariant): CropFit {
+  return frame === "none" ? "fill" : "fit";
 }

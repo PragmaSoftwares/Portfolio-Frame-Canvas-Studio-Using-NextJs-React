@@ -10,10 +10,10 @@ interface CroppedImageProps {
 }
 
 /**
- * Renders an image with position/zoom/fit-or-fill crop settings applied purely
- * via CSS — the underlying file is never modified. Shared by the board (preview
- * and export) and the screenshot review card, so crop always looks identical
- * everywhere it's shown.
+ * Renders an image with position/zoom/fit ("fit"/"fill"/"stretch") crop
+ * settings applied purely via CSS — the underlying file is never modified.
+ * Shared by the board (preview and export) and the screenshot review card,
+ * so crop always looks identical everywhere it's shown.
  */
 export function CroppedImage({ src, crop, width, height, style }: CroppedImageProps) {
   return (
@@ -28,7 +28,7 @@ export function CroppedImage({ src, crop, width, height, style }: CroppedImagePr
           inset: 0,
           width: "100%",
           height: "100%",
-          objectFit: crop.fit === "fit" ? "contain" : "cover",
+          objectFit: crop.fit === "fit" ? "contain" : crop.fit === "stretch" ? "fill" : "cover",
           objectPosition: `${crop.x * 100}% ${crop.y * 100}%`,
           transform: `scale(${crop.zoom})`,
           transformOrigin: `${crop.x * 100}% ${crop.y * 100}%`,

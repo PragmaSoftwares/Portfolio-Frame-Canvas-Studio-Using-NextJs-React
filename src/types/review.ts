@@ -1,10 +1,12 @@
 import type { CaptureDevice } from "@/lib/storage/paths";
 
 // Display-time fit for an already-cropped image inside its board frame — no
-// adjustable position/zoom anymore (that precision now happens once, physically,
-// via the crop tool). Kept so BoardCanvas/DeviceFrame/CroppedImage don't need
-// reshaping: it's effectively always DEFAULT_CROP now.
-export type CropFit = "fit" | "fill";
+// adjustable position/zoom (that precision happens once, physically, via the
+// crop tool), just how the image fills whatever box it's placed in: "fit"
+// (contain, show everything, may letterbox), "fill" (cover, crop overflow),
+// or "stretch" (fill exactly, may distort). Each CanvasItem can set its own
+// via `contentFit` — see src/types/board.ts.
+export type CropFit = "fit" | "fill" | "stretch";
 
 export interface CropSettings {
   x: number;

@@ -5,6 +5,7 @@ import { BoardCanvas } from "@/components/board/BoardCanvas";
 import { DeviceFrame } from "@/components/board/DeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
 import { DEFAULT_CROP } from "@/types/review";
+import { defaultContentFit } from "@/lib/board/frameSize";
 
 // Playwright must capture this route in the Node.js runtime, never Edge.
 export const runtime = "nodejs";
@@ -65,18 +66,17 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
         if (!resolved) return null;
         const { item, src } = resolved;
         const style = { left: item.x, top: item.y, zIndex: item.zIndex };
+        const crop = { ...DEFAULT_CROP, fit: item.contentFit ?? defaultContentFit(item.frame) };
 
         if (item.frame === "none") {
-          return (
-            <PlainFrame key={item.id} src={src} crop={DEFAULT_CROP} width={item.width} height={item.height} style={style} />
-          );
+          return <PlainFrame key={item.id} src={src} crop={crop} width={item.width} height={item.height} style={style} />;
         }
         return (
           <DeviceFrame
             key={item.id}
             variant={item.frame}
             src={src}
-            crop={DEFAULT_CROP}
+            crop={crop}
             width={item.width}
             style={style}
           />

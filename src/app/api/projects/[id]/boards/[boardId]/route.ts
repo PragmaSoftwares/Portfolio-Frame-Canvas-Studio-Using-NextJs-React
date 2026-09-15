@@ -3,11 +3,13 @@ import { assertSafeId } from "@/lib/storage/paths";
 import { readBoard, updateBoard, deleteBoard, type BoardPatch } from "@/lib/storage/boards";
 import { readBackgroundImage } from "@/lib/storage/backgroundImages";
 import type { BackgroundFit, CanvasItem, FrameVariant } from "@/types/board";
+import type { CropFit } from "@/types/review";
 
 export const runtime = "nodejs";
 
 const FRAME_VARIANTS: FrameVariant[] = ["desktop", "laptop", "tablet", "mobile", "none"];
 const BACKGROUND_FITS: BackgroundFit[] = ["cover", "repeat", "stretch"];
+const CONTENT_FITS: CropFit[] = ["fit", "fill", "stretch"];
 
 function parseItems(raw: unknown): CanvasItem[] | null {
   if (!Array.isArray(raw)) return null;
@@ -25,7 +27,8 @@ function parseItems(raw: unknown): CanvasItem[] | null {
       typeof e.height !== "number" ||
       typeof e.zIndex !== "number" ||
       typeof e.frame !== "string" ||
-      !FRAME_VARIANTS.includes(e.frame as FrameVariant)
+      !FRAME_VARIANTS.includes(e.frame as FrameVariant) ||
+      ("contentFit" in e && (typeof e.contentFit !== "string" || !CONTENT_FITS.includes(e.contentFit as CropFit)))
     ) {
       return null;
     }
@@ -39,6 +42,7 @@ function parseItems(raw: unknown): CanvasItem[] | null {
       height: Math.max(20, e.height),
       zIndex: e.zIndex,
       frame: e.frame as FrameVariant,
+      contentFit: typeof e.contentFit === "string" ? (e.contentFit as CropFit) : undefined,
     });
   }
   return items;

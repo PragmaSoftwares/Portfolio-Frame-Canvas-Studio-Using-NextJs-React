@@ -8,7 +8,8 @@ import { DeviceFrame } from "@/components/board/DeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
 import { backgroundStyleFor } from "@/components/board/BoardCanvas";
 import { DEFAULT_CROP } from "@/types/review";
-import { defaultFrameWidth, frameOuterHeight, defaultFrameForDevice } from "@/lib/board/frameSize";
+import type { CropFit } from "@/types/review";
+import { defaultFrameWidth, frameOuterHeight, defaultFrameForDevice, defaultContentFit } from "@/lib/board/frameSize";
 import type { Board, BackgroundFit, BoardBackground, CanvasItem, FrameVariant } from "@/types/board";
 import type { BackgroundImage } from "@/types/backgroundImage";
 import type { SelectionWithPage } from "@/lib/storage/review";
@@ -27,6 +28,11 @@ const BACKGROUND_FIT_OPTIONS: { value: BackgroundFit; label: string }[] = [
   { value: "cover", label: "Cover" },
   { value: "repeat", label: "Repeat" },
   { value: "stretch", label: "Stretch" },
+];
+const CONTENT_FIT_OPTIONS: { value: CropFit; label: string; description: string }[] = [
+  { value: "fit", label: "Fit", description: "Show the whole screenshot, no cropping" },
+  { value: "fill", label: "Cover", description: "Fill the frame, cropping overflow" },
+  { value: "stretch", label: "Stretch", description: "Fill exactly, may distort" },
 ];
 
 function mediaSrc(projectId: string, filename: string): string {
@@ -104,6 +110,7 @@ export function CanvasEditor({
       height,
       zIndex: nextZ,
       frame,
+      contentFit: defaultContentFit(frame),
     };
     setItems((prev) => [...prev, item]);
     setSelectedId(item.id);
@@ -153,6 +160,10 @@ export function CanvasEditor({
   function changeFrame(id: string, frame: FrameVariant) {
     const item = items.find((it) => it.id === id);
     if (!item) return;
+    // Re-defaults the content fit for the new frame type each time (rather
+    // than carrying over an explicit choice from a different frame shape) —
+    // simple and predictable; re-pick it afterward if needed.
+    const contentFit = defaultContentFit(frame);
 
     if (frame === "none") {
       // Show the crop exactly as captured — reset to the screenshot's own
@@ -165,11 +176,15 @@ export function CanvasEditor({
         selection && selection.width > 0
           ? Math.round(item.width * (selection.height / selection.width))
           : item.height;
-      updateItem(id, { frame, height });
+      updateItem(id, { frame, height, contentFit });
       return;
     }
 
-    updateItem(id, { frame, height: frameOuterHeight(frame, item.width) });
+    updateItem(id, { frame, height: frameOuterHeight(frame, item.width), contentFit });
+  }
+
+  function changeContentFit(id: string, contentFit: CropFit) {
+    updateItem(id, { contentFit });
   }
 
   function selectImageBackground(imageId: string) {
@@ -472,7 +487,7 @@ export function CanvasEditor({
                       {frame === "none" ? (
                         <PlainFrame
                           src={mediaSrc(projectId, s.filename)}
-                          crop={DEFAULT_CROP}
+                          crop={{ ...DEFAULT_CROP, fit: defaultContentFit(frame) }}
                           width={thumbWidth}
                           height={Math.round(thumbWidth * 0.75)}
                           style={{ left: 0, top: 0 }}
@@ -481,7 +496,7 @@ export function CanvasEditor({
                         <DeviceFrame
                           variant={frame}
                           src={mediaSrc(projectId, s.filename)}
-                          crop={DEFAULT_CROP}
+                          crop={{ ...DEFAULT_CROP, fit: defaultContentFit(frame) }}
                           width={thumbWidth}
                           style={{ left: 0, top: 0 }}
                         />
@@ -552,10 +567,11 @@ export function CanvasEditor({
                     {(() => {
                       const selection = selectionById.get(item.selectionId);
                       const src = selection ? mediaSrc(projectId, selection.filename) : null;
+                      const crop = { ...DEFAULT_CROP, fit: item.contentFit ?? defaultContentFit(item.frame) };
                       if (item.frame === "none") {
-                        return <PlainFrame src={src} crop={DEFAULT_CROP} width={item.width} height={item.height} style={{ left: 0, top: 0 }} />;
+                        return <PlainFrame src={src} crop={crop} width={item.width} height={item.height} style={{ left: 0, top: 0 }} />;
                       }
-                      return <DeviceFrame variant={item.frame} src={src} crop={DEFAULT_CROP} width={item.width} style={{ left: 0, top: 0 }} />;
+                      return <DeviceFrame variant={item.frame} src={src} crop={crop} width={item.width} style={{ left: 0, top: 0 }} />;
                     })()}
                   </div>
                 </div>
@@ -585,6 +601,24 @@ export function CanvasEditor({
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400">Content fit</label>
+                <select
+                  value={selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)}
+                  onChange={(e) => changeContentFit(selectedItem.id, e.target.value as CropFit)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                >
+                  {CONTENT_FIT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500">
+                  {CONTENT_FIT_OPTIONS.find((opt) => opt.value === (selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)))
+                    ?.description}
+                </p>
               </div>
               <div className="flex gap-2">
                 <button
