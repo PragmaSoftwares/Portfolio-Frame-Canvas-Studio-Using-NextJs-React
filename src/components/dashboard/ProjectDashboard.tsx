@@ -76,6 +76,9 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
       <div className="mx-auto max-w-4xl space-y-8">
         <header className="flex items-start justify-between gap-4">
           <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-400">
+              Portfolio Frame Canvas Studio
+            </p>
             <h1 className="text-2xl font-semibold">Portfolio projects</h1>
             <p className="text-slate-400 text-sm">
               Create a project for each website, capture it, and export a portfolio board.
@@ -172,6 +175,28 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
             ))}
           </ul>
         )}
+
+        <footer className="flex flex-col items-center gap-2 border-t border-slate-800 pt-6 text-xs text-slate-600 sm:flex-row sm:justify-between">
+          <a
+            href="https://choosealicense.com/licenses/mit/"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-slate-400"
+          >
+            MIT License
+          </a>
+          <p>
+            Built by{" "}
+            <a
+              href="https://www.pragmasoftwares.com/?utm_source=portfolio-frame-canvas-studio&utm_medium=referral"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-slate-400"
+            >
+              Pragma Softwares
+            </a>
+          </p>
+        </footer>
       </div>
     </div>
   );
