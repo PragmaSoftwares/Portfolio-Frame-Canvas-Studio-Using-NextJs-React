@@ -21,6 +21,11 @@ arrangements, as you want.
 - **Free-form canvas** — drag cropped screenshots onto a canvas, position
   and resize them with the mouse or arrow keys, layer them, and pick a
   device frame per item (or no frame at all).
+- **Text layer** — drag a text box onto the canvas alongside your
+  screenshots. Format it with font family (a curated set of real,
+  self-hosted Google Fonts), size, color, bold/italic/underline, alignment
+  (including justify), letter spacing, line height, text case, vertical
+  alignment, a background plate, opacity, drop shadow, and an outline.
 - **Realistic device frames** — desktop, laptop, tablet, and phone mockups,
   not a flat CSS rectangle.
 - **Custom backgrounds** — a dark or light gradient out of the box, or
@@ -90,12 +95,8 @@ Playwright always runs in the Node.js runtime, never the Edge runtime.
 
 This is a personal/small-team tool, not a general-purpose design app:
 
-- No text, title, or caption layer on the canvas — it's screenshots and
-  frames only.
 - No batch export or a smaller (1000×750) export size yet — only the
   2000×1500 master size, exported one board at a time.
-- No automatic page discovery — pages are added manually.
-- No logo file upload (a path/URL field only).
 - Cookie/promo popups on captured pages are dismissed on a best-effort
   basis automatically, not guaranteed — for anything that slips through
   (or a Cloudflare/CAPTCHA check), use a project's "Assisted Setup" to
