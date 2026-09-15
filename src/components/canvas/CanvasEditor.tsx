@@ -68,6 +68,7 @@ export function CanvasEditor({
   const [backgroundImages, setBackgroundImages] = useState<BackgroundImage[]>(initialBackgroundImages);
   const [uploadingBackground, setUploadingBackground] = useState(false);
   const [items, setItems] = useState<CanvasItem[]>(initialBoard.items);
+  const [pageFilter, setPageFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -80,6 +81,8 @@ export function CanvasEditor({
   const editorHeight = initialBoard.canvasHeight * EDITOR_SCALE;
   const selectionById = new Map(selections.map((s) => [s.id, s]));
   const selectedBackgroundImage = backgroundImageId ? backgroundImages.find((img) => img.id === backgroundImageId) : null;
+  const pageOptions = Array.from(new Map(selections.map((s) => [s.pageSlug, s.pageLabel])).entries());
+  const visibleSelections = pageFilter === "all" ? selections : selections.filter((s) => s.pageSlug === pageFilter);
 
   function markDirty() {
     setDirty(true);
@@ -414,6 +417,20 @@ export function CanvasEditor({
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
             Cropped screenshots — drag onto the canvas
           </h2>
+          {pageOptions.length > 1 && (
+            <select
+              value={pageFilter}
+              onChange={(e) => setPageFilter(e.target.value)}
+              className="mb-3 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs outline-none focus:border-indigo-500"
+            >
+              <option value="all">All pages</option>
+              {pageOptions.map(([slug, label]) => (
+                <option key={slug} value={slug}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          )}
           {selections.length === 0 ? (
             <p className="text-xs text-slate-500">
               No cropped sections yet.{" "}
@@ -423,7 +440,7 @@ export function CanvasEditor({
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {selections.map((s) => {
+              {visibleSelections.map((s) => {
                 const frame = defaultFrameForDevice(s.sourceDevice);
                 const thumbWidth = 110;
                 return (
