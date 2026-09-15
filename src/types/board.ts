@@ -24,6 +24,10 @@ export interface CanvasItem {
   // applied when the item is created or its frame changes — see
   // CanvasEditor's addItem/changeFrame.
   contentFit?: CropFit;
+  // Fill color for the letterbox/pillarbox gap "fit" can leave around the
+  // image (a hex string, e.g. "#ffffff"). Only visible when contentFit is
+  // "fit" and the crop's own aspect ratio doesn't exactly match the box.
+  contentFitColor?: string;
 }
 
 export interface Board {

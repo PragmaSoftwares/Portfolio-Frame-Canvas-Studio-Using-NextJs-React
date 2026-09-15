@@ -14,6 +14,8 @@ interface DeviceFrameProps {
   src: string | null;
   width: number;
   crop?: CropSettings;
+  /** Letterbox/pillarbox fill color for "fit" mode's gap. Defaults to white. */
+  contentBackground?: string;
   style?: CSSProperties;
 }
 
@@ -81,7 +83,19 @@ export function frameImageHeight(variant: DeviceFrameProps["variant"], width: nu
   return Math.round(width * (asset.imageHeight / asset.imageWidth));
 }
 
-function ScreenContent({ src, crop, width, height }: { src: string | null; crop: CropSettings; width: number; height: number }) {
+function ScreenContent({
+  src,
+  crop,
+  width,
+  height,
+  contentBackground,
+}: {
+  src: string | null;
+  crop: CropSettings;
+  width: number;
+  height: number;
+  contentBackground: string;
+}) {
   if (!src) {
     return (
       <div
@@ -100,11 +114,12 @@ function ScreenContent({ src, crop, width, height }: { src: string | null; crop:
   }
   // A real device's screen window almost never matches an arbitrary crop's
   // own aspect ratio exactly, so whichever fit mode leaves a gap ("fit" /
-  // contain) gets a white background to fill it — matching the plain page
-  // background most captures have. Harmless for "fill"/"stretch", which
-  // always cover the box completely and never show it.
+  // contain) gets a background to fill it — white by default (matching the
+  // plain page background most captures have), user-configurable otherwise.
+  // Harmless for "fill"/"stretch", which always cover the box completely and
+  // never show it.
   return (
-    <div style={{ width, height, background: "#ffffff" }}>
+    <div style={{ width, height, background: contentBackground }}>
       <CroppedImage src={src} crop={crop} width={width} height={height} />
     </div>
   );
@@ -118,7 +133,7 @@ function ScreenContent({ src, crop, width, height }: { src: string | null; crop:
  * of it pixel-for-pixel. Renders a neutral placeholder when src is null, so
  * an unfilled slot never breaks the layout.
  */
-export function DeviceFrame({ variant, src, width, crop = DEFAULT_SCREEN_CROP, style }: DeviceFrameProps) {
+export function DeviceFrame({ variant, src, width, crop = DEFAULT_SCREEN_CROP, contentBackground = "#ffffff", style }: DeviceFrameProps) {
   const asset = FRAME_ASSETS[variant];
   const scale = width / asset.imageWidth;
   const height = Math.round(asset.imageHeight * scale);
@@ -149,7 +164,7 @@ export function DeviceFrame({ variant, src, width, crop = DEFAULT_SCREEN_CROP, s
           overflow: "hidden",
         }}
       >
-        <ScreenContent src={src} crop={crop} width={contentWidth} height={contentHeight} />
+        <ScreenContent src={src} crop={crop} width={contentWidth} height={contentHeight} contentBackground={contentBackground} />
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

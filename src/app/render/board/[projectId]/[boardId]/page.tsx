@@ -67,9 +67,20 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
         const { item, src } = resolved;
         const style = { left: item.x, top: item.y, zIndex: item.zIndex };
         const crop = { ...DEFAULT_CROP, fit: item.contentFit ?? defaultContentFit(item.frame) };
+        const contentBackground = item.contentFitColor ?? "#ffffff";
 
         if (item.frame === "none") {
-          return <PlainFrame key={item.id} src={src} crop={crop} width={item.width} height={item.height} style={style} />;
+          return (
+            <PlainFrame
+              key={item.id}
+              src={src}
+              crop={crop}
+              width={item.width}
+              height={item.height}
+              contentBackground={contentBackground}
+              style={style}
+            />
+          );
         }
         return (
           <DeviceFrame
@@ -78,6 +89,7 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
             src={src}
             crop={crop}
             width={item.width}
+            contentBackground={contentBackground}
             style={style}
           />
         );

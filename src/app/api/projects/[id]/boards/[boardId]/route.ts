@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 const FRAME_VARIANTS: FrameVariant[] = ["desktop", "laptop", "tablet", "mobile", "none"];
 const BACKGROUND_FITS: BackgroundFit[] = ["cover", "repeat", "stretch"];
 const CONTENT_FITS: CropFit[] = ["fit", "fill", "stretch"];
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 function parseItems(raw: unknown): CanvasItem[] | null {
   if (!Array.isArray(raw)) return null;
@@ -28,7 +29,8 @@ function parseItems(raw: unknown): CanvasItem[] | null {
       typeof e.zIndex !== "number" ||
       typeof e.frame !== "string" ||
       !FRAME_VARIANTS.includes(e.frame as FrameVariant) ||
-      ("contentFit" in e && (typeof e.contentFit !== "string" || !CONTENT_FITS.includes(e.contentFit as CropFit)))
+      ("contentFit" in e && (typeof e.contentFit !== "string" || !CONTENT_FITS.includes(e.contentFit as CropFit))) ||
+      ("contentFitColor" in e && (typeof e.contentFitColor !== "string" || !HEX_COLOR_PATTERN.test(e.contentFitColor)))
     ) {
       return null;
     }
@@ -43,6 +45,7 @@ function parseItems(raw: unknown): CanvasItem[] | null {
       zIndex: e.zIndex,
       frame: e.frame as FrameVariant,
       contentFit: typeof e.contentFit === "string" ? (e.contentFit as CropFit) : undefined,
+      contentFitColor: typeof e.contentFitColor === "string" ? e.contentFitColor : undefined,
     });
   }
   return items;

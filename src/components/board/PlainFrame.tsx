@@ -8,6 +8,8 @@ interface PlainFrameProps {
   crop?: CropSettings;
   width: number;
   height: number;
+  /** Letterbox/pillarbox fill color for "fit" mode's gap. Defaults to white. */
+  contentBackground?: string;
   placeholderLabel?: string;
   style?: CSSProperties;
 }
@@ -18,7 +20,15 @@ interface PlainFrameProps {
  * chrome or phone bezel). Renders a neutral empty state when no image is
  * assigned yet, so a template never breaks when optional slots are unfilled.
  */
-export function PlainFrame({ src, crop = DEFAULT_CROP, width, height, placeholderLabel, style }: PlainFrameProps) {
+export function PlainFrame({
+  src,
+  crop = DEFAULT_CROP,
+  width,
+  height,
+  contentBackground = "#ffffff",
+  placeholderLabel,
+  style,
+}: PlainFrameProps) {
   const frameStyle: CSSProperties = {
     position: "absolute",
     width,
@@ -50,5 +60,11 @@ export function PlainFrame({ src, crop = DEFAULT_CROP, width, height, placeholde
     );
   }
 
-  return <CroppedImage src={src} crop={crop} width={width} height={height} style={frameStyle} />;
+  // Only "fit" mode can leave a letterbox/pillarbox gap; "fill"/"stretch"
+  // always cover the box, so this background is never visible there.
+  return (
+    <div style={{ ...frameStyle, background: contentBackground }}>
+      <CroppedImage src={src} crop={crop} width={width} height={height} />
+    </div>
+  );
 }

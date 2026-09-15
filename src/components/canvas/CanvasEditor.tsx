@@ -187,6 +187,10 @@ export function CanvasEditor({
     updateItem(id, { contentFit });
   }
 
+  function changeContentFitColor(id: string, contentFitColor: string) {
+    updateItem(id, { contentFitColor });
+  }
+
   function selectImageBackground(imageId: string) {
     setBackground("image");
     setBackgroundImageId(imageId);
@@ -568,10 +572,29 @@ export function CanvasEditor({
                       const selection = selectionById.get(item.selectionId);
                       const src = selection ? mediaSrc(projectId, selection.filename) : null;
                       const crop = { ...DEFAULT_CROP, fit: item.contentFit ?? defaultContentFit(item.frame) };
+                      const contentBackground = item.contentFitColor ?? "#ffffff";
                       if (item.frame === "none") {
-                        return <PlainFrame src={src} crop={crop} width={item.width} height={item.height} style={{ left: 0, top: 0 }} />;
+                        return (
+                          <PlainFrame
+                            src={src}
+                            crop={crop}
+                            width={item.width}
+                            height={item.height}
+                            contentBackground={contentBackground}
+                            style={{ left: 0, top: 0 }}
+                          />
+                        );
                       }
-                      return <DeviceFrame variant={item.frame} src={src} crop={crop} width={item.width} style={{ left: 0, top: 0 }} />;
+                      return (
+                        <DeviceFrame
+                          variant={item.frame}
+                          src={src}
+                          crop={crop}
+                          width={item.width}
+                          contentBackground={contentBackground}
+                          style={{ left: 0, top: 0 }}
+                        />
+                      );
                     })()}
                   </div>
                 </div>
@@ -619,6 +642,27 @@ export function CanvasEditor({
                   {CONTENT_FIT_OPTIONS.find((opt) => opt.value === (selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)))
                     ?.description}
                 </p>
+                {(selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)) === "fit" && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <label className="text-xs text-slate-400">Gap color</label>
+                    <input
+                      type="color"
+                      value={selectedItem.contentFitColor ?? "#ffffff"}
+                      onChange={(e) => changeContentFitColor(selectedItem.id, e.target.value)}
+                      className="h-7 w-10 cursor-pointer rounded border border-slate-700 bg-slate-900 p-0.5"
+                      title="Fill color for the empty space Fit mode can leave around the screenshot"
+                    />
+                    <span className="text-xs text-slate-500">{selectedItem.contentFitColor ?? "#ffffff"}</span>
+                    {selectedItem.contentFitColor && selectedItem.contentFitColor !== "#ffffff" && (
+                      <button
+                        onClick={() => changeContentFitColor(selectedItem.id, "#ffffff")}
+                        className="ml-auto text-xs text-slate-500 hover:text-slate-300"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
