@@ -1,6 +1,7 @@
 import { frameImageHeight } from "@/components/board/DeviceFrame";
 import type { FrameVariant } from "@/types/board";
 import type { CropFit } from "@/types/review";
+import type { CaptureDevice } from "@/lib/storage/paths";
 
 /**
  * Outer frame height for a given width, mirroring DeviceFrame's own layout
@@ -40,7 +41,7 @@ export function defaultFrameWidth(frame: FrameVariant): number {
   }
 }
 
-export function defaultFrameForDevice(sourceDevice: "desktop" | "tablet" | "mobile"): FrameVariant {
+export function defaultFrameForDevice(sourceDevice: CaptureDevice): FrameVariant {
   return sourceDevice;
 }
 

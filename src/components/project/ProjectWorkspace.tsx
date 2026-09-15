@@ -326,7 +326,12 @@ function PageRow({
         <p className="truncate text-xs text-slate-500">{page.url}</p>
         {status === "ready" && capture?.images && (
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-            {(["desktop", "tablet", "mobile"] as const).map((device) => (
+            {/* Older captures (before the "laptop" device existed) won't have every
+                key — filter to what's actually present instead of assuming all four,
+                so a legacy page shows its 3 devices instead of crashing on the 4th. */}
+            {(["desktop", "laptop", "tablet", "mobile"] as const)
+              .filter((device) => capture.images![device])
+              .map((device) => (
               <span key={device} className="space-x-1">
                 <span className="text-emerald-400">✓</span>
                 <span>{device}</span>

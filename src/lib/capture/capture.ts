@@ -8,6 +8,11 @@ export interface Viewport {
 }
 
 export const DESKTOP_VIEWPORT: Viewport = { width: 1440, height: 1000 };
+// The single most common real-world laptop screen resolution (per StatCounter)
+// — deliberately narrower than DESKTOP_VIEWPORT so it can actually land on a
+// different responsive breakpoint than the desktop capture, not just crop to
+// a different aspect ratio of the same rendered layout.
+export const LAPTOP_VIEWPORT: Viewport = { width: 1366, height: 768 };
 export const TABLET_VIEWPORT: Viewport = { width: 768, height: 1024 };
 export const MOBILE_VIEWPORT: Viewport = { width: 390, height: 844 };
 
@@ -129,6 +134,7 @@ export interface DeviceCaptureBuffers {
 
 export interface CaptureAllResult {
   desktop: DeviceCaptureBuffers;
+  laptop: DeviceCaptureBuffers;
   tablet: DeviceCaptureBuffers;
   mobile: DeviceCaptureBuffers;
 }
@@ -147,10 +153,11 @@ async function captureDevice(context: BrowserContext, url: string, viewport: Vie
 }
 
 /**
- * Captures desktop, tablet, and mobile screenshots of a single URL, each as both
- * a visible-viewport shot and a full-page shot (section 8 of the plan).
- * Devices are captured sequentially, in one browser context, with a consistent
- * locale, timezone, and light colour scheme for reproducible output.
+ * Captures desktop, laptop, tablet, and mobile screenshots of a single URL,
+ * each as both a visible-viewport shot and a full-page shot (section 8 of
+ * the plan). Devices are captured sequentially, in one browser context, with
+ * a consistent locale, timezone, and light colour scheme for reproducible
+ * output.
  */
 export async function captureAllDevices(url: string): Promise<CaptureAllResult> {
   const browser = await getBrowser();
@@ -162,9 +169,10 @@ export async function captureAllDevices(url: string): Promise<CaptureAllResult> 
 
   try {
     const desktop = await captureDevice(context, url, DESKTOP_VIEWPORT);
+    const laptop = await captureDevice(context, url, LAPTOP_VIEWPORT);
     const tablet = await captureDevice(context, url, TABLET_VIEWPORT);
     const mobile = await captureDevice(context, url, MOBILE_VIEWPORT);
-    return { desktop, tablet, mobile };
+    return { desktop, laptop, tablet, mobile };
   } finally {
     await context.close();
   }

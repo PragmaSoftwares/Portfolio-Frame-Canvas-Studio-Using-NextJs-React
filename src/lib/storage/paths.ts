@@ -14,7 +14,7 @@ export const BACKGROUNDS_ROOT = path.join(DATA_ROOT, "backgrounds");
 // Additional approved pages (Phase 3) get generated slugs — see lib/storage/pages.ts.
 export const HOME_PAGE_SLUG = "home";
 
-export type CaptureDevice = "desktop" | "tablet" | "mobile";
+export type CaptureDevice = "desktop" | "laptop" | "tablet" | "mobile";
 
 const ID_PATTERN = /^[a-zA-Z0-9_-]{6,32}$/;
 const SLUG_PATTERN = /^[a-z0-9-]{1,64}$/;

@@ -100,7 +100,7 @@ export async function removeApprovedPage(projectId: string, slug: string): Promi
 }
 
 async function cleanupPageFiles(projectId: string, slug: string): Promise<void> {
-  const devices = ["desktop", "tablet", "mobile"] as const;
+  const devices = ["desktop", "laptop", "tablet", "mobile"] as const;
   await Promise.all(
     devices.flatMap((device) => {
       const dir = projectCaptureDeviceDir(projectId, device);

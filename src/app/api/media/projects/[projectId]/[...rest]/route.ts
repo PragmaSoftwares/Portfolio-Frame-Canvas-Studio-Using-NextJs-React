@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 // Selection filenames include a nanoid suffix, which uses mixed-case + underscores.
 const FILENAME_PATTERN = /^[a-zA-Z0-9_-]+\.(png|jpg|webp)$/;
-const CAPTURE_SUBDIRS = new Set(["desktop", "tablet", "mobile", "selections"]);
+const CAPTURE_SUBDIRS = new Set(["desktop", "laptop", "tablet", "mobile", "selections"]);
 
 const CONTENT_TYPES: Record<string, string> = {
   png: "image/png",

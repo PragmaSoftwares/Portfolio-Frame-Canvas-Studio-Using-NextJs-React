@@ -79,8 +79,9 @@ export async function POST(request: Request) {
   try {
     const captured = await captureAllDevices(page.url);
 
-    const [desktop, tablet, mobile] = await Promise.all([
+    const [desktop, laptop, tablet, mobile] = await Promise.all([
       saveDevice(projectId, "desktop", pageSlug, captured.desktop),
+      saveDevice(projectId, "laptop", pageSlug, captured.laptop),
       saveDevice(projectId, "tablet", pageSlug, captured.tablet),
       saveDevice(projectId, "mobile", pageSlug, captured.mobile),
     ]);
@@ -89,7 +90,7 @@ export async function POST(request: Request) {
       ...baseMeta,
       status: "ready",
       updatedAt: new Date().toISOString(),
-      images: { desktop, tablet, mobile },
+      images: { desktop, laptop, tablet, mobile },
     };
     await writePageCaptureMeta(readyMeta);
     await touchProject(projectId);

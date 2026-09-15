@@ -8,6 +8,7 @@ import type { ApprovedPage } from "@/types/project";
 import type { PageCaptureMeta } from "@/types/capture";
 import type { ScreenshotSelection } from "@/types/review";
 import { frameHoleAspect } from "@/components/board/DeviceFrame";
+import type { CaptureDevice } from "@/lib/storage/paths";
 
 interface PageSelectionsPanelProps {
   projectId: string;
@@ -16,18 +17,19 @@ interface PageSelectionsPanelProps {
   selections: ScreenshotSelection[];
 }
 
-type Device = "desktop" | "tablet" | "mobile";
+// Single-sourced from the capture pipeline's own device union (lib/storage/paths.ts)
+// instead of a locally re-declared literal list, so a future capture device can't
+// be added there and silently missed here.
+type Device = CaptureDevice;
 
-const DEVICES: Device[] = ["desktop", "tablet", "mobile"];
+const DEVICES: Device[] = ["desktop", "laptop", "tablet", "mobile"];
 
-// The capture device tabs above only cover desktop/tablet/mobile (that's all
-// the capture pipeline produces), but a crop is just as often destined for a
-// board's "laptop" frame by user choice — so it gets a preset too, it's just
-// not auto-selected by any capture tab. Pulled from the same pixel-measured
-// FRAME_ASSETS DeviceFrame itself renders from, so these can never drift out
-// of sync with the actual frames a screenshot ends up displayed in.
+// Pulled from the same pixel-measured FRAME_ASSETS DeviceFrame itself renders
+// from, so these can never drift out of sync with the actual frames a
+// screenshot ends up displayed in.
 const DEVICE_FRAME_ASPECTS: Record<Device, number> = {
   desktop: frameHoleAspect("desktop"),
+  laptop: frameHoleAspect("laptop"),
   tablet: frameHoleAspect("tablet"),
   mobile: frameHoleAspect("mobile"),
 };
@@ -35,7 +37,7 @@ const DEVICE_FRAME_ASPECTS: Record<Device, number> = {
 const ASPECT_PRESETS: { label: string; value: number | undefined; device?: Device }[] = [
   { label: "Free", value: undefined },
   { label: "Desktop", value: DEVICE_FRAME_ASPECTS.desktop, device: "desktop" },
-  { label: "Laptop", value: frameHoleAspect("laptop") },
+  { label: "Laptop", value: DEVICE_FRAME_ASPECTS.laptop, device: "laptop" },
   { label: "Tablet", value: DEVICE_FRAME_ASPECTS.tablet, device: "tablet" },
   { label: "Mobile", value: DEVICE_FRAME_ASPECTS.mobile, device: "mobile" },
   { label: "Square", value: 1 },
@@ -121,7 +123,13 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
     );
   }
 
-  const fullPageSrc = `/api/media/projects/${projectId}/captures/${device}/${capture.images[device].fullPage}`;
+  // A page captured before a device existed (e.g. "laptop" added later) won't
+  // have that key yet — guard instead of assuming every device is present,
+  // and prompt a recapture rather than crashing.
+  const deviceImages = capture.images[device];
+  const fullPageSrc = deviceImages
+    ? `/api/media/projects/${projectId}/captures/${device}/${deviceImages.fullPage}`
+    : null;
 
   function handleImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     const { width, height } = e.currentTarget;
@@ -251,10 +259,17 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
       </div>
 
       <div className="overflow-y-auto rounded-xl border border-slate-800 bg-slate-900" style={{ maxHeight: "70vh" }}>
-        <ReactCrop crop={crop} onChange={(_, percentCrop) => setCrop(percentCrop)} onComplete={(c) => setPixelCrop(c)} aspect={aspect}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img ref={imgRef} src={fullPageSrc} alt="" onLoad={handleImageLoad} style={{ width: "100%", height: "auto", display: "block" }} />
-        </ReactCrop>
+        {fullPageSrc ? (
+          <ReactCrop crop={crop} onChange={(_, percentCrop) => setCrop(percentCrop)} onComplete={(c) => setPixelCrop(c)} aspect={aspect}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img ref={imgRef} src={fullPageSrc} alt="" onLoad={handleImageLoad} style={{ width: "100%", height: "auto", display: "block" }} />
+          </ReactCrop>
+        ) : (
+          <p className="px-6 py-16 text-center text-sm text-slate-500">
+            This page hasn&apos;t been captured for <span className="capitalize">{device}</span> yet — recapture it
+            from the project page to add this device.
+          </p>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

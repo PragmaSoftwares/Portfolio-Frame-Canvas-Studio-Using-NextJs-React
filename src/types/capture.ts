@@ -16,6 +16,7 @@ export interface PageCaptureMeta {
   updatedAt: string;
   images?: {
     desktop: DeviceCaptureFiles;
+    laptop: DeviceCaptureFiles;
     tablet: DeviceCaptureFiles;
     mobile: DeviceCaptureFiles;
   };

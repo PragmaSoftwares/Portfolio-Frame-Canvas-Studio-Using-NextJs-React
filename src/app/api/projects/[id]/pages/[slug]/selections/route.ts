@@ -8,7 +8,7 @@ import { findProjectPage, isLookupError } from "@/lib/review/lookup";
 
 export const runtime = "nodejs";
 
-const DEVICES = new Set(["desktop", "tablet", "mobile"]);
+const DEVICES = new Set(["desktop", "laptop", "tablet", "mobile"]);
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // cropped desktop full-page sections can be large
 const ALLOWED_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
