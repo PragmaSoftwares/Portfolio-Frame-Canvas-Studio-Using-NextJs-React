@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { BackgroundFit, BoardBackground } from "@/types/board";
+import { cssFontFamily } from "@/lib/fonts";
 
 // Default/master size, matching Upwork's recommended 4:3 portfolio image
 // dimensions (scaled up for export quality). Each board may override this.
@@ -19,6 +20,7 @@ interface BoardCanvasProps {
   watermarkLineWidth?: number;
   watermarkFontSize?: number;
   watermarkOpacity?: number;
+  watermarkFontFamily?: string;
 }
 
 // Matches the studio-backdrop photos the user supplied as the reference look
@@ -68,45 +70,35 @@ export function backgroundStyleFor(
   return { background: background === "light" ? LIGHT_BACKGROUND : DARK_BACKGROUND };
 }
 
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 /**
- * A repeating diagonal "proof" watermark — two crossing diagonal lines plus
- * the watermark text, rotated to follow one of them, tiled edge-to-edge via
- * CSS background-repeat so it covers the whole canvas and can't be cropped
- * or copy-pasted out of a single spot. Built as one SVG tile (not one big
- * SVG covering the whole canvas) so it repeats crisply at any canvas size
- * without regenerating markup per size. Everything about it — color, line
- * width, text size, opacity, whether it shows at all, and what text it
- * says — is agency-wide (AgencySettings), applied identically to every
- * project's boards; there's no per-project override.
+ * Shared by the lines background and the text grid below, so they always
+ * agree on exactly the same tile size — if they drifted, the repeating text
+ * would no longer line up with the diagonal lines it's meant to follow.
+ * Tile size scales with text length and font size so longer watermark text
+ * doesn't get clipped and the repeat spacing stays proportional. `tileScale`
+ * (default 1, i.e. full export resolution) shrinks the whole tile — text,
+ * lines, and spacing together — for a scaled-down editor preview, the same
+ * way backgroundStyleFor's own tileScale does for a repeating background
+ * image; otherwise the pattern would look artificially oversized in the
+ * editor compared to the real export.
  */
-export function watermarkStyle(
-  text: string,
-  color: string,
-  lineWidth: number,
-  fontSize: number,
-  opacity: number,
-  tileScale = 1
-): CSSProperties {
-  // Tile size scales with text length and font size so longer watermark text
-  // doesn't get clipped and the repeat spacing stays proportional. `tileScale`
-  // (default 1, i.e. full export resolution) shrinks the whole tile — text,
-  // lines, and spacing together — for a scaled-down editor preview, the same
-  // way backgroundStyleFor's own tileScale does for a repeating background
-  // image; otherwise the pattern would look artificially oversized in the
-  // editor compared to the real export.
+function watermarkTileMetrics(text: string, lineWidth: number, fontSize: number, tileScale: number) {
   const scaledFontSize = Math.max(4, fontSize * tileScale);
   const scaledLineWidth = Math.max(0.25, lineWidth * tileScale);
   const tile = Math.max(40, Math.round(scaledFontSize * (text.length * 0.6 + 6)));
-  const half = tile / 2;
-  const safeText = escapeXml(text);
+  return { tile, half: tile / 2, scaledFontSize, scaledLineWidth };
+}
+
+/**
+ * Just the repeating diagonal crosshatch lines, as a small SVG tile — no
+ * text baked into this SVG. An SVG used as a CSS background-image is a
+ * separate resource context that can't see the page's @font-face rules, so
+ * text that needs to render in a real (self-hosted) font has to be actual
+ * DOM text instead — see WatermarkOverlay below, which layers real HTML
+ * spans on top of this at the same tile spacing.
+ */
+function watermarkLinesStyle(text: string, color: string, lineWidth: number, fontSize: number, opacity: number, tileScale: number): CSSProperties {
+  const { tile, scaledLineWidth } = watermarkTileMetrics(text, lineWidth, fontSize, tileScale);
   // Opacity is a separate multiplier from the color itself (applied to the
   // whole group, not baked into the hex) — a low-opacity, barely-there-
   // unless-you-look-closely watermark (the Canva-style default this is
@@ -117,24 +109,104 @@ export function watermarkStyle(
     <g opacity="${opacity}">
       <line x1="0" y1="0" x2="${tile}" y2="${tile}" stroke="${color}" stroke-width="${scaledLineWidth}" />
       <line x1="0" y1="${tile}" x2="${tile}" y2="0" stroke="${color}" stroke-width="${scaledLineWidth}" />
-      <text x="${half}" y="${half}" fill="${color}" font-size="${scaledFontSize}" font-family="sans-serif" font-weight="600" letter-spacing="1" text-anchor="middle" dominant-baseline="middle" transform="rotate(-45 ${half} ${half})">${safeText}</text>
     </g>
   </svg>`;
   return {
-    position: "absolute",
-    inset: 0,
-    // Placed items carry their own explicit z-index (CanvasItem.zIndex), and
-    // any sibling with a positive z-index stacks above one left at the
-    // default "auto" regardless of DOM order — so without an explicit,
-    // deliberately-huge z-index here, the watermark would end up buried
-    // under items instead of sitting on top of all of them as a watermark
-    // needs to (unremovable by just moving/layering items around it).
-    zIndex: 999_999,
-    pointerEvents: "none",
     backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
     backgroundRepeat: "repeat",
     backgroundSize: `${tile}px ${tile}px`,
   };
+}
+
+interface WatermarkOverlayProps {
+  canvasWidth: number;
+  canvasHeight: number;
+  text: string;
+  color: string;
+  lineWidth: number;
+  fontSize: number;
+  opacity: number;
+  fontFamily: string;
+  tileScale?: number;
+}
+
+/**
+ * A repeating diagonal "proof" watermark — two crossing diagonal lines plus
+ * the watermark text, rotated to follow one of them, tiled edge-to-edge so
+ * it covers the whole canvas and can't be cropped or copy-pasted out of a
+ * single spot. The lines stay a tiled SVG background (unchanged, cheap, no
+ * font involved); the text is a grid of real absolutely-positioned spans at
+ * the same tile spacing, which is what lets it actually render in the
+ * agency's chosen font instead of an SVG-only fallback. Everything about it
+ * — color, line width, text size, opacity, font, whether it shows at all,
+ * and what text it says — is agency-wide (AgencySettings), applied
+ * identically to every project's boards; there's no per-project override.
+ */
+export function WatermarkOverlay({
+  canvasWidth,
+  canvasHeight,
+  text,
+  color,
+  lineWidth,
+  fontSize,
+  opacity,
+  fontFamily,
+  tileScale = 1,
+}: WatermarkOverlayProps) {
+  const { tile, half, scaledFontSize } = watermarkTileMetrics(text, lineWidth, fontSize, tileScale);
+
+  // One extra tile of margin on every side: text rotated -45deg has a
+  // larger visual footprint than its own unrotated bounding box, so a grid
+  // sized exactly to the canvas would leave visible gaps at the edges.
+  const cols = Math.ceil(canvasWidth / tile) + 2;
+  const rows = Math.ceil(canvasHeight / tile) + 2;
+  const positions: { x: number; y: number }[] = [];
+  for (let row = -1; row < rows - 1; row++) {
+    for (let col = -1; col < cols - 1; col++) {
+      positions.push({ x: half + col * tile, y: half + row * tile });
+    }
+  }
+
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset: 0,
+        // Placed items carry their own explicit z-index (CanvasItem.zIndex), and
+        // any sibling with a positive z-index stacks above one left at the
+        // default "auto" regardless of DOM order — so without an explicit,
+        // deliberately-huge z-index here, the watermark would end up buried
+        // under items instead of sitting on top of all of them as a watermark
+        // needs to (unremovable by just moving/layering items around it).
+        zIndex: 999_999,
+        pointerEvents: "none",
+        overflow: "hidden",
+        ...watermarkLinesStyle(text, color, lineWidth, fontSize, opacity, tileScale),
+      }}
+    >
+      {positions.map((pos, i) => (
+        <span
+          key={i}
+          style={{
+            position: "absolute",
+            left: pos.x,
+            top: pos.y,
+            transform: "translate(-50%, -50%) rotate(-45deg)",
+            fontFamily: cssFontFamily(fontFamily),
+            fontSize: scaledFontSize,
+            fontWeight: 600,
+            letterSpacing: 1,
+            color,
+            opacity,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {text}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -155,6 +227,7 @@ export function BoardCanvas({
   watermarkLineWidth = 0.75,
   watermarkFontSize = 14,
   watermarkOpacity = 0.18,
+  watermarkFontFamily = "System UI",
 }: BoardCanvasProps) {
   return (
     <div
@@ -175,7 +248,16 @@ export function BoardCanvas({
           every placed item, the way a proof watermark needs to — otherwise a
           framed screenshot could just cover it up. */}
       {watermarkEnabled && watermarkText.trim().length > 0 && (
-        <div style={watermarkStyle(watermarkText, watermarkColor, watermarkLineWidth, watermarkFontSize, watermarkOpacity)} />
+        <WatermarkOverlay
+          canvasWidth={width}
+          canvasHeight={height}
+          text={watermarkText}
+          color={watermarkColor}
+          lineWidth={watermarkLineWidth}
+          fontSize={watermarkFontSize}
+          opacity={watermarkOpacity}
+          fontFamily={watermarkFontFamily}
+        />
       )}
     </div>
   );

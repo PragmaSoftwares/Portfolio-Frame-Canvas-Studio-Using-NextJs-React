@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import { Rnd } from "react-rnd";
 import { DeviceFrame } from "@/components/board/DeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
-import { backgroundStyleFor, watermarkStyle } from "@/components/board/BoardCanvas";
+import { backgroundStyleFor, WatermarkOverlay } from "@/components/board/BoardCanvas";
 import { DEFAULT_CROP } from "@/types/review";
 import type { CropFit } from "@/types/review";
 import { defaultFrameWidth, frameOuterHeight, defaultFrameForDevice, defaultContentFit } from "@/lib/board/frameSize";
@@ -41,6 +41,7 @@ interface CanvasEditorProps {
   watermarkLineWidth: number;
   watermarkFontSize: number;
   watermarkOpacity: number;
+  watermarkFontFamily: string;
 }
 
 const EDITOR_SCALE = 0.36;
@@ -207,6 +208,7 @@ export function CanvasEditor({
   watermarkLineWidth,
   watermarkFontSize,
   watermarkOpacity,
+  watermarkFontFamily,
 }: CanvasEditorProps) {
   const [name, setName] = useState(initialBoard.name);
   const [background, setBackground] = useState<BoardBackground>(initialBoard.background);
@@ -886,7 +888,17 @@ export function CanvasEditor({
               </Rnd>
             ))}
             {watermarkVisible && watermarkText.trim().length > 0 && (
-              <div style={watermarkStyle(watermarkText, watermarkColor, watermarkLineWidth, watermarkFontSize, watermarkOpacity, EDITOR_SCALE)} />
+              <WatermarkOverlay
+                canvasWidth={editorWidth}
+                canvasHeight={editorHeight}
+                text={watermarkText}
+                color={watermarkColor}
+                lineWidth={watermarkLineWidth}
+                fontSize={watermarkFontSize}
+                opacity={watermarkOpacity}
+                fontFamily={watermarkFontFamily}
+                tileScale={EDITOR_SCALE}
+              />
             )}
           </div>
         </main>

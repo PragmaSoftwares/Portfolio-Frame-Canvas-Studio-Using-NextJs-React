@@ -193,7 +193,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
             </Field>
           </div>
 
-          <Field label="Default font family" hint="Stored for later use — boards don't apply this yet.">
+          <Field label="Default font family" hint="Used for the repeating watermark text on every board's export.">
             <select
               value={defaultFontFamily}
               onChange={(e) => setDefaultFontFamily(e.target.value)}
