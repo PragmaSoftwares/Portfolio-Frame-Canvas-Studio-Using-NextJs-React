@@ -9,6 +9,7 @@ export interface AgencySettings {
   watermarkColor: string; // hex
   watermarkLineWidth: number; // px
   watermarkFontSize: number; // px
+  watermarkOpacity: number; // 0-1 fraction, applied on top of the color (kept separate so the color swatch itself stays true, not pre-faded)
   defaultBackgroundLight: string;
   defaultBackgroundDark: string;
   defaultFontFamily: string;

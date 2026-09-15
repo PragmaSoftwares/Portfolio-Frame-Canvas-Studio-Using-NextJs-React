@@ -33,6 +33,7 @@ export default async function BoardPage({ params }: BoardPageProps) {
       watermarkColor={settings.watermarkColor}
       watermarkLineWidth={settings.watermarkLineWidth}
       watermarkFontSize={settings.watermarkFontSize}
+      watermarkOpacity={settings.watermarkOpacity}
     />
   );
 }

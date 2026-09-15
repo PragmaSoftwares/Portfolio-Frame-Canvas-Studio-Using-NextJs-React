@@ -25,6 +25,7 @@ interface CanvasEditorProps {
   watermarkColor: string;
   watermarkLineWidth: number;
   watermarkFontSize: number;
+  watermarkOpacity: number;
 }
 
 const EDITOR_SCALE = 0.36;
@@ -179,6 +180,7 @@ export function CanvasEditor({
   watermarkColor,
   watermarkLineWidth,
   watermarkFontSize,
+  watermarkOpacity,
 }: CanvasEditorProps) {
   const [name, setName] = useState(initialBoard.name);
   const [background, setBackground] = useState<BoardBackground>(initialBoard.background);
@@ -722,7 +724,7 @@ export function CanvasEditor({
               </Rnd>
             ))}
             {watermark.visible && watermark.text.trim().length > 0 && (
-              <div style={watermarkStyle(watermark.text, watermarkColor, watermarkLineWidth, watermarkFontSize, EDITOR_SCALE)} />
+              <div style={watermarkStyle(watermark.text, watermarkColor, watermarkLineWidth, watermarkFontSize, watermarkOpacity, EDITOR_SCALE)} />
             )}
           </div>
         </main>

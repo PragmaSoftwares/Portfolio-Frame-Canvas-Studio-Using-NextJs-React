@@ -9,8 +9,12 @@ const DEFAULT_SETTINGS: AgencySettings = {
   defaultWatermarkText: "SAMPLE",
   defaultWatermarkVisible: false,
   watermarkColor: "#94a3b8",
-  watermarkLineWidth: 1,
+  watermarkLineWidth: 0.75,
   watermarkFontSize: 14,
+  // Low by default so the watermark reads as barely-there unless someone
+  // zooms in — the Canva-style "proof" look — rather than something that
+  // competes with the actual content for attention.
+  watermarkOpacity: 0.18,
   defaultBackgroundLight: "#f8fafc",
   defaultBackgroundDark: "#0f172a",
   defaultFontFamily: "System UI",

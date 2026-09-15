@@ -55,8 +55,9 @@ export async function PUT(request: Request) {
         ? record.defaultWatermarkVisible
         : current.defaultWatermarkVisible,
     watermarkColor: asHexColor(record.watermarkColor, current.watermarkColor),
-    watermarkLineWidth: asClampedNumber(record.watermarkLineWidth, current.watermarkLineWidth, 0.5, 10),
+    watermarkLineWidth: asClampedNumber(record.watermarkLineWidth, current.watermarkLineWidth, 0.25, 10),
     watermarkFontSize: asClampedNumber(record.watermarkFontSize, current.watermarkFontSize, 8, 72),
+    watermarkOpacity: asClampedNumber(record.watermarkOpacity, current.watermarkOpacity, 0.05, 1),
     defaultBackgroundLight: asString(record.defaultBackgroundLight, current.defaultBackgroundLight),
     defaultBackgroundDark: asString(record.defaultBackgroundDark, current.defaultBackgroundDark),
     defaultFontFamily: asString(record.defaultFontFamily, current.defaultFontFamily),

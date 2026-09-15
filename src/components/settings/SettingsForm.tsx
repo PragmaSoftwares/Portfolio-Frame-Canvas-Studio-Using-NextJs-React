@@ -18,6 +18,8 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [watermarkColor, setWatermarkColor] = useState(initialSettings.watermarkColor);
   const [watermarkLineWidth, setWatermarkLineWidth] = useState(initialSettings.watermarkLineWidth);
   const [watermarkFontSize, setWatermarkFontSize] = useState(initialSettings.watermarkFontSize);
+  // Stored as a 0-1 fraction; edited here as a friendlier 0-100 percent.
+  const [watermarkOpacityPct, setWatermarkOpacityPct] = useState(Math.round(initialSettings.watermarkOpacity * 100));
   const [defaultBackgroundLight, setDefaultBackgroundLight] = useState(initialSettings.defaultBackgroundLight);
   const [defaultBackgroundDark, setDefaultBackgroundDark] = useState(initialSettings.defaultBackgroundDark);
   const [defaultFontFamily, setDefaultFontFamily] = useState(initialSettings.defaultFontFamily);
@@ -44,6 +46,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
           watermarkColor,
           watermarkLineWidth,
           watermarkFontSize,
+          watermarkOpacity: watermarkOpacityPct / 100,
           defaultBackgroundLight,
           defaultBackgroundDark,
           defaultFontFamily,
@@ -113,7 +116,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
             Show watermark by default on new projects
           </label>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Field label="Watermark color">
               <input
                 type="color"
@@ -122,12 +125,23 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                 className="h-10 w-full rounded-lg border border-slate-700 bg-slate-900"
               />
             </Field>
+            <Field label="Opacity (%)" hint="Low = barely visible unless zoomed in, like a Canva proof.">
+              <input
+                type="number"
+                min={5}
+                max={100}
+                step={1}
+                value={watermarkOpacityPct}
+                onChange={(e) => setWatermarkOpacityPct(Number(e.target.value))}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
+              />
+            </Field>
             <Field label="Line width (px)">
               <input
                 type="number"
-                min={0.5}
+                min={0.25}
                 max={10}
-                step={0.5}
+                step={0.25}
                 value={watermarkLineWidth}
                 onChange={(e) => setWatermarkLineWidth(Number(e.target.value))}
                 className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"

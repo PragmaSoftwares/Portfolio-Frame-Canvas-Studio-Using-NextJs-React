@@ -73,6 +73,7 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
       watermarkColor={settings.watermarkColor}
       watermarkLineWidth={settings.watermarkLineWidth}
       watermarkFontSize={settings.watermarkFontSize}
+      watermarkOpacity={settings.watermarkOpacity}
     >
       {resolvedItems.map((resolved) => {
         if (!resolved) return null;

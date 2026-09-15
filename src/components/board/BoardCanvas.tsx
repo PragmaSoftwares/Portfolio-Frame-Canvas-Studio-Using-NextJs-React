@@ -18,6 +18,7 @@ interface BoardCanvasProps {
   watermarkColor?: string;
   watermarkLineWidth?: number;
   watermarkFontSize?: number;
+  watermarkOpacity?: number;
 }
 
 // Matches the studio-backdrop photos the user supplied as the reference look
@@ -90,6 +91,7 @@ export function watermarkStyle(
   color: string,
   lineWidth: number,
   fontSize: number,
+  opacity: number,
   tileScale = 1
 ): CSSProperties {
   // Tile size scales with text length and font size so longer watermark text
@@ -104,10 +106,18 @@ export function watermarkStyle(
   const tile = Math.max(40, Math.round(scaledFontSize * (text.length * 0.6 + 6)));
   const half = tile / 2;
   const safeText = escapeXml(text);
+  // Opacity is a separate multiplier from the color itself (applied to the
+  // whole group, not baked into the hex) — a low-opacity, barely-there-
+  // unless-you-look-closely watermark (the Canva-style default this is
+  // meant to match) is mostly about opacity, not stroke width; keeping it
+  // distinct also means the color swatch in Settings still shows the true
+  // color at full strength, not something already faded.
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${tile}" height="${tile}">
-    <line x1="0" y1="0" x2="${tile}" y2="${tile}" stroke="${color}" stroke-width="${scaledLineWidth}" />
-    <line x1="0" y1="${tile}" x2="${tile}" y2="0" stroke="${color}" stroke-width="${scaledLineWidth}" />
-    <text x="${half}" y="${half}" fill="${color}" font-size="${scaledFontSize}" font-family="sans-serif" font-weight="600" letter-spacing="1" text-anchor="middle" dominant-baseline="middle" transform="rotate(-45 ${half} ${half})">${safeText}</text>
+    <g opacity="${opacity}">
+      <line x1="0" y1="0" x2="${tile}" y2="${tile}" stroke="${color}" stroke-width="${scaledLineWidth}" />
+      <line x1="0" y1="${tile}" x2="${tile}" y2="0" stroke="${color}" stroke-width="${scaledLineWidth}" />
+      <text x="${half}" y="${half}" fill="${color}" font-size="${scaledFontSize}" font-family="sans-serif" font-weight="600" letter-spacing="1" text-anchor="middle" dominant-baseline="middle" transform="rotate(-45 ${half} ${half})">${safeText}</text>
+    </g>
   </svg>`;
   return {
     position: "absolute",
@@ -141,8 +151,9 @@ export function BoardCanvas({
   watermarkEnabled = false,
   watermarkText = "SAMPLE",
   watermarkColor = "#94a3b8",
-  watermarkLineWidth = 1,
+  watermarkLineWidth = 0.75,
   watermarkFontSize = 14,
+  watermarkOpacity = 0.18,
 }: BoardCanvasProps) {
   return (
     <div
@@ -163,7 +174,7 @@ export function BoardCanvas({
           every placed item, the way a proof watermark needs to — otherwise a
           framed screenshot could just cover it up. */}
       {watermarkEnabled && watermarkText.trim().length > 0 && (
-        <div style={watermarkStyle(watermarkText, watermarkColor, watermarkLineWidth, watermarkFontSize)} />
+        <div style={watermarkStyle(watermarkText, watermarkColor, watermarkLineWidth, watermarkFontSize, watermarkOpacity)} />
       )}
     </div>
   );
