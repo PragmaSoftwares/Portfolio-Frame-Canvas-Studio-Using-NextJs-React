@@ -92,7 +92,19 @@ function ScreenContent({ src, crop, width, height }: { src: string | null; crop:
       </div>
     );
   }
-  return <CroppedImage src={src} crop={crop} width={width} height={height} />;
+  // A real device's screen window almost never matches an arbitrary crop's
+  // own aspect ratio exactly, and "cover" (the default elsewhere) crops
+  // whatever overflows — silently losing content at the edges, which is
+  // exactly what a device frame should never do to a screenshot the user
+  // deliberately cropped. Force "contain" here specifically, regardless of
+  // what fit the caller passed in, so the full screenshot is always shown;
+  // a white background fills any letterbox/pillarbox gap where the aspect
+  // ratios don't match, matching the plain page background most captures have.
+  return (
+    <div style={{ width, height, background: "#ffffff" }}>
+      <CroppedImage src={src} crop={{ ...crop, fit: "fit" }} width={width} height={height} />
+    </div>
+  );
 }
 
 /**
