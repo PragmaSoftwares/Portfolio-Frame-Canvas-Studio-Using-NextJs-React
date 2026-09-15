@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { ProjectData, ApprovedPage } from "@/types/project";
 import type { PageCaptureMeta } from "@/types/capture";
 import type { Board } from "@/types/board";
+import { accentFor } from "@/lib/ui/cardAccent";
 
 const HOME_SLUG = "home";
 // Mirrors MAX_ADDITIONAL_PAGES in lib/storage/pages.ts (that module is server-only, imports fs).
@@ -259,13 +260,17 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-6 py-12">
-      <div className="mx-auto max-w-4xl space-y-8">
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-1/2 h-125 w-225 -translate-x-1/2 rounded-full bg-linear-to-br from-indigo-600/15 via-violet-600/8 to-transparent blur-3xl"
+      />
+      <div className="relative mx-auto max-w-4xl space-y-8 px-6 py-12">
         <header className="space-y-2">
           <Link href="/" className="text-xs text-slate-500 hover:text-slate-300">
             ← Dashboard
           </Link>
-          <h1 className="text-2xl font-semibold">{project.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
           <p className="text-slate-400 text-sm">
             <a href={project.mainUrl} target="_blank" rel="noreferrer" className="hover:text-indigo-400">
               {project.mainUrl}
@@ -282,13 +287,13 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
             <button
               onClick={handleCaptureAllClick}
               disabled={busy}
-              className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-gradient-accent glow-accent rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {runningAll ? "Capturing all…" : "Capture all pages"}
             </button>
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-slate-200">Assisted setup</p>
@@ -306,7 +311,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
                     <button
                       onClick={handleFinishAssistedSetup}
                       disabled={assistedSetupBusy}
-                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {assistedSetupBusy ? "Saving…" : "Done — Save"}
                     </button>
@@ -322,7 +327,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
                   <button
                     onClick={handleStartAssistedSetup}
                     disabled={assistedSetupBusy}
-                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium hover:border-indigo-500 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {assistedSetupBusy ? "Opening…" : "Open Assisted setup"}
                   </button>
@@ -349,7 +354,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
             </div>
           )}
 
-          <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
+          <ul className="space-y-3">
             {pages.map((page) => (
               <PageRow
                 key={page.slug}
@@ -389,7 +394,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
             <button
               type="submit"
               disabled={addingPage || atPageLimit || newPageUrl.trim().length === 0}
-              className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-medium hover:border-indigo-500 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {addingPage ? "Adding…" : "Add page"}
             </button>
@@ -403,7 +408,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
 
         <section>
           <div
-            className={`flex flex-wrap items-center justify-between gap-4 rounded-xl border px-5 py-4 ${
+            className={`flex flex-wrap items-center justify-between gap-4 rounded-2xl border px-5 py-4 ${
               selectionCount === 0 ? "border-amber-700/60 bg-amber-950/20" : "border-slate-800 bg-slate-900/40"
             }`}
           >
@@ -419,7 +424,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
             </div>
             <Link
               href={`/projects/${project.id}/review`}
-              className="shrink-0 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400"
+              className="bg-gradient-accent glow-accent shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5"
             >
               Review &amp; crop screenshots →
             </Link>
@@ -434,7 +439,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
             <button
               onClick={handleProceedToCanvas}
               disabled={creatingBoard}
-              className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-gradient-accent glow-accent rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {creatingBoard ? "Creating…" : "Proceed to Canvas"}
             </button>
@@ -457,27 +462,39 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
           )}
 
           {boards.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-slate-800 px-6 py-8 text-center text-sm text-slate-500">
+            <p className="rounded-2xl border border-dashed border-slate-800 px-6 py-8 text-center text-sm text-slate-500">
               No boards yet — click &quot;Proceed to Canvas&quot; to create your first one.
             </p>
           ) : (
-            <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
+            <ul className="grid gap-4 sm:grid-cols-2">
               {boards.map((board) => (
-                <li key={board.id} className="flex items-center justify-between gap-4 px-5 py-4">
-                  <div className="min-w-0 flex-1">
-                    <Link href={`/projects/${project.id}/boards/${board.id}`} className="truncate font-medium hover:text-indigo-400">
+                <li
+                  key={board.id}
+                  className="group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40 p-5 transition hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-xl hover:shadow-indigo-950/40"
+                >
+                  <div className={`absolute inset-x-0 top-0 h-1 bg-linear-to-r ${accentFor(board.id)}`} />
+
+                  <div className="min-w-0">
+                    <Link
+                      href={`/projects/${project.id}/boards/${board.id}`}
+                      className="block truncate text-base font-semibold text-slate-100 hover:text-indigo-300"
+                    >
                       {board.name}
                     </Link>
-                    <p className="text-xs text-slate-500">
+                    <p className="mt-1 truncate text-xs text-slate-500">
                       {board.items.length} item{board.items.length === 1 ? "" : "s"} · {board.canvasWidth}×{board.canvasHeight} ·{" "}
                       {board.background}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3 text-xs">
+
+                  <div className="mt-4 flex items-center gap-4 border-t border-slate-800/80 pt-3 text-xs">
                     <Link href={`/projects/${project.id}/boards/${board.id}`} className="text-indigo-400 hover:text-indigo-300">
                       Open
                     </Link>
-                    <button onClick={() => handleDeleteBoard(board.id, board.name)} className="text-red-400 hover:text-red-300">
+                    <button
+                      onClick={() => handleDeleteBoard(board.id, board.name)}
+                      className="ml-auto text-red-400/90 hover:text-red-300"
+                    >
                       Delete
                     </button>
                   </div>
@@ -531,7 +548,7 @@ function PageRow({
   }
 
   return (
-    <li className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-2 rounded-2xl border border-slate-800 bg-slate-900/40 px-5 py-4 transition hover:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{page.label}</p>
         {editingUrl ? (
