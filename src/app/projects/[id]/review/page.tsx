@@ -3,6 +3,7 @@ import { readProject } from "@/lib/storage/projects";
 import { readPageCaptureMeta } from "@/lib/storage/captures";
 import { readPageSelections } from "@/lib/storage/review";
 import { ScreenshotReviewGrid, type PageReviewData } from "@/components/review/ScreenshotReviewGrid";
+import { AppHeader } from "@/components/nav/AppHeader";
 
 interface ReviewPageProps {
   params: Promise<{ id: string }>;
@@ -20,5 +21,10 @@ export default async function ReviewPage({ params }: ReviewPageProps) {
     pagesData.push({ page, capture, selections });
   }
 
-  return <ScreenshotReviewGrid projectId={id} projectName={project.name} pagesData={pagesData} />;
+  return (
+    <>
+      <AppHeader />
+      <ScreenshotReviewGrid projectId={id} projectName={project.name} pagesData={pagesData} />
+    </>
+  );
 }

@@ -4,6 +4,7 @@ import { readPageCaptureMeta } from "@/lib/storage/captures";
 import { listBoards } from "@/lib/storage/boards";
 import { listAllSelections } from "@/lib/storage/review";
 import { ProjectWorkspace } from "@/components/project/ProjectWorkspace";
+import { AppHeader } from "@/components/nav/AppHeader";
 import type { PageCaptureMeta } from "@/types/capture";
 
 interface ProjectPageProps {
@@ -25,6 +26,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   const selections = await listAllSelections(id, project.approvedPages);
 
   return (
-    <ProjectWorkspace project={project} initialCaptures={captures} initialBoards={boards} selectionCount={selections.length} />
+    <>
+      <AppHeader />
+      <ProjectWorkspace project={project} initialCaptures={captures} initialBoards={boards} selectionCount={selections.length} />
+    </>
   );
 }

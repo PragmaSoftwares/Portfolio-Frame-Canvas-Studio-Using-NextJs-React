@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { TopNav } from "@/components/nav/TopNav";
 import type { ProjectData } from "@/types/project";
 
 interface ProjectDashboardProps {
@@ -99,32 +98,11 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
       />
 
       <div className="relative mx-auto max-w-5xl space-y-10 px-6 py-12">
-        <header className="flex flex-wrap items-start justify-between gap-6">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5">
-              {/* A small "framed screen" mark echoing the app's own device
-                  frames — brand identity, not just a text label. */}
-              <span className="flex h-7 w-9 shrink-0 items-center justify-center rounded-md border-2 border-indigo-400/70 bg-slate-900">
-                <span className="h-2.5 w-4 rounded-sm bg-linear-to-br from-indigo-400 to-fuchsia-400" />
-              </span>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                Portfolio Frame Canvas Studio
-              </p>
-            </div>
-            <h1 className="text-gradient-accent text-3xl font-semibold tracking-tight">Portfolio projects</h1>
-            <p className="max-w-md text-sm text-slate-400">
-              Create a project for each website, capture it, and export a portfolio board.
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <TopNav />
-            <Link
-              href="/projects/new"
-              className="bg-gradient-accent glow-accent rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5"
-            >
-              + New project
-            </Link>
-          </div>
+        <header className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight">Portfolio projects</h1>
+          <p className="max-w-md text-sm text-slate-400">
+            Create a project for each website, capture it, and export a portfolio board.
+          </p>
         </header>
 
         {error && (
