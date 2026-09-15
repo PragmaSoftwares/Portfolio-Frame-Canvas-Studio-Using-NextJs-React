@@ -9,6 +9,24 @@ interface SettingsFormProps {
   initialSettings: AgencySettings;
 }
 
+// A curated set of common, widely-recognized web fonts — Poppins is the
+// app's own font (see layout.tsx), the rest are popular Google Fonts picks
+// agencies commonly ask for. Kept as a fixed list rather than a free-text
+// field since this is a "pick one of the usual suspects" setting, not a
+// place to type an arbitrary CSS font stack.
+const FONT_FAMILY_OPTIONS = [
+  "System UI",
+  "Poppins",
+  "Inter",
+  "Roboto",
+  "Open Sans",
+  "Lato",
+  "Montserrat",
+  "Nunito",
+  "Work Sans",
+  "Playfair Display",
+] as const;
+
 export function SettingsForm({ initialSettings }: SettingsFormProps) {
   const router = useRouter();
   const [agencyName, setAgencyName] = useState(initialSettings.agencyName);
@@ -193,11 +211,20 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
           </div>
 
           <Field label="Default font family" hint="Stored for later use — boards don't apply this yet.">
-            <input
+            <select
               value={defaultFontFamily}
               onChange={(e) => setDefaultFontFamily(e.target.value)}
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
-            />
+            >
+              {!FONT_FAMILY_OPTIONS.includes(defaultFontFamily as (typeof FONT_FAMILY_OPTIONS)[number]) && (
+                <option value={defaultFontFamily}>{defaultFontFamily}</option>
+              )}
+              {FONT_FAMILY_OPTIONS.map((font) => (
+                <option key={font} value={font}>
+                  {font}
+                </option>
+              ))}
+            </select>
           </Field>
 
           <Field label="Standard services" hint="Comma-separated. Copied into every new project as a starting point.">
