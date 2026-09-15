@@ -7,16 +7,23 @@ export type BoardBackground = "dark" | "light" | "image";
 /** How an uploaded background image fills the canvas when it doesn't match the canvas's own aspect ratio. */
 export type BackgroundFit = "cover" | "repeat" | "stretch";
 
-/** One placed, framed screenshot on a canvas board. Position/size are in the board's own fixed pixel space. */
-export interface CanvasItem {
+export type TextAlign = "left" | "center" | "right";
+
+/** Fields shared by every kind of thing placeable on a board — position/size/layer, in the board's own fixed pixel space. */
+interface CanvasItemBase {
   id: string;
-  pageSlug: string;
-  selectionId: string;
   x: number;
   y: number;
   width: number;
   height: number;
   zIndex: number;
+}
+
+/** One placed, framed screenshot on a canvas board. */
+export interface ScreenshotItem extends CanvasItemBase {
+  kind: "screenshot";
+  pageSlug: string;
+  selectionId: string;
   frame: FrameVariant;
   // How the screenshot fills its frame/box — "fit" (show everything, may
   // letterbox), "fill" (crop overflow), or "stretch" (fill exactly, may
@@ -36,6 +43,26 @@ export interface CanvasItem {
   // sidebar's vertical-position drag handle in CanvasEditor.
   contentY?: number;
 }
+
+/** One placed, freely-styled text box on a canvas board. */
+export interface TextItem extends CanvasItemBase {
+  kind: "text";
+  text: string;
+  // One of lib/fonts.ts's FONT_FAMILY_NAMES — kept as a plain string (not a
+  // union) so an older saved item still renders sensibly even if the
+  // curated font list ever changes; see cssFontFamily's fallback.
+  fontFamily: string;
+  fontSize: number; // px, at full export resolution — same convention as width/height
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  color: string; // hex
+  align: TextAlign;
+  letterSpacing: number; // px
+  lineHeight: number; // unitless multiplier, e.g. 1.2
+}
+
+export type CanvasItem = ScreenshotItem | TextItem;
 
 export interface Board {
   id: string;

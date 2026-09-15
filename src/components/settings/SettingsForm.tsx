@@ -4,28 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AgencySettings } from "@/types/settings";
+import { FONT_FAMILY_NAMES, cssFontFamily } from "@/lib/fonts";
 
 interface SettingsFormProps {
   initialSettings: AgencySettings;
 }
-
-// A curated set of common, widely-recognized web fonts — Poppins is the
-// app's own font (see layout.tsx), the rest are popular Google Fonts picks
-// agencies commonly ask for. Kept as a fixed list rather than a free-text
-// field since this is a "pick one of the usual suspects" setting, not a
-// place to type an arbitrary CSS font stack.
-const FONT_FAMILY_OPTIONS = [
-  "System UI",
-  "Poppins",
-  "Inter",
-  "Roboto",
-  "Open Sans",
-  "Lato",
-  "Montserrat",
-  "Nunito",
-  "Work Sans",
-  "Playfair Display",
-] as const;
 
 export function SettingsForm({ initialSettings }: SettingsFormProps) {
   const router = useRouter();
@@ -216,11 +199,11 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
               onChange={(e) => setDefaultFontFamily(e.target.value)}
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
             >
-              {!FONT_FAMILY_OPTIONS.includes(defaultFontFamily as (typeof FONT_FAMILY_OPTIONS)[number]) && (
+              {!FONT_FAMILY_NAMES.includes(defaultFontFamily) && (
                 <option value={defaultFontFamily}>{defaultFontFamily}</option>
               )}
-              {FONT_FAMILY_OPTIONS.map((font) => (
-                <option key={font} value={font}>
+              {FONT_FAMILY_NAMES.map((font) => (
+                <option key={font} value={font} style={{ fontFamily: cssFontFamily(font) }}>
                   {font}
                 </option>
               ))}

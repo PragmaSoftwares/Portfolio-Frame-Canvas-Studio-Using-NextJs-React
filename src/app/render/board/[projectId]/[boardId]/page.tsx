@@ -5,6 +5,7 @@ import { readSettings } from "@/lib/storage/settings";
 import { BoardCanvas } from "@/components/board/BoardCanvas";
 import { DeviceFrame } from "@/components/board/DeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
+import { TextBox } from "@/components/board/TextBox";
 import { DEFAULT_CROP } from "@/types/review";
 import { defaultContentFit } from "@/lib/board/frameSize";
 
@@ -46,10 +47,12 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
 
   const resolvedItems = await Promise.all(
     board.items.map(async (item) => {
+      if (item.kind === "text") return { kind: "text" as const, item };
       const selections = await selectionsFor(item.pageSlug);
       const selection = selections.find((s) => s.id === item.selectionId);
       if (!selection) return null;
       return {
+        kind: "screenshot" as const,
         item,
         src: `/api/media/projects/${projectId}/captures/selections/${selection.filename}`,
       };
@@ -72,8 +75,13 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
     >
       {resolvedItems.map((resolved) => {
         if (!resolved) return null;
+        const style = { left: resolved.item.x, top: resolved.item.y, zIndex: resolved.item.zIndex };
+
+        if (resolved.kind === "text") {
+          return <TextBox key={resolved.item.id} item={resolved.item} style={style} />;
+        }
+
         const { item, src } = resolved;
-        const style = { left: item.x, top: item.y, zIndex: item.zIndex };
         const crop = { ...DEFAULT_CROP, fit: item.contentFit ?? defaultContentFit(item.frame), y: item.contentY ?? 0.5 };
         const contentBackground = item.contentFitColor ?? "#ffffff";
 

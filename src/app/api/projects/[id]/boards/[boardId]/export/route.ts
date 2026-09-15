@@ -24,7 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Board not found." }, { status: 404 });
   }
   if (board.items.length === 0) {
-    return NextResponse.json({ error: "Add at least one screenshot to the canvas before exporting." }, { status: 400 });
+    return NextResponse.json({ error: "Add at least one item to the canvas before exporting." }, { status: 400 });
   }
 
   const origin = new URL(request.url).origin;

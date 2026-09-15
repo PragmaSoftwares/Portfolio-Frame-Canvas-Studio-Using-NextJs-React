@@ -15,6 +15,20 @@ function boardPath(projectId: string, boardId: string): string {
   return path.join(projectBoardsDir(assertSafeId(projectId)), `${assertSafeId(boardId)}.json`);
 }
 
+// Every item used to implicitly be a screenshot — text items didn't exist —
+// so a board file saved before that has items with no `kind` field at all.
+// Backfill it on read rather than forcing a one-time migration script.
+function migrateBoard(raw: Record<string, unknown>): Board {
+  if (Array.isArray(raw.items)) {
+    raw.items = raw.items.map((item) => {
+      if (typeof item !== "object" || item === null) return item;
+      const record = item as Record<string, unknown>;
+      return record.kind === undefined ? { ...record, kind: "screenshot" } : record;
+    });
+  }
+  return raw as unknown as Board;
+}
+
 export async function listBoards(projectId: string): Promise<Board[]> {
   let entries;
   try {
@@ -29,7 +43,7 @@ export async function listBoards(projectId: string): Promise<Board[]> {
     if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
     try {
       const raw = await fs.readFile(path.join(projectBoardsDir(projectId), entry.name), "utf-8");
-      boards.push(JSON.parse(raw) as Board);
+      boards.push(migrateBoard(JSON.parse(raw) as Record<string, unknown>));
     } catch {
       // Skip unreadable/corrupt board files.
     }
@@ -41,7 +55,7 @@ export async function listBoards(projectId: string): Promise<Board[]> {
 export async function readBoard(projectId: string, boardId: string): Promise<Board | null> {
   try {
     const raw = await fs.readFile(boardPath(projectId, boardId), "utf-8");
-    return JSON.parse(raw) as Board;
+    return migrateBoard(JSON.parse(raw) as Record<string, unknown>);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
@@ -120,10 +134,10 @@ export async function deleteBoard(projectId: string, boardId: string): Promise<v
 export async function removeSelectionFromBoards(projectId: string, selectionId: string): Promise<void> {
   const boards = await listBoards(projectId);
   for (const board of boards) {
-    if (!board.items.some((item) => item.selectionId === selectionId)) continue;
+    if (!board.items.some((item) => item.kind === "screenshot" && item.selectionId === selectionId)) continue;
     await writeBoard({
       ...board,
-      items: board.items.filter((item) => item.selectionId !== selectionId),
+      items: board.items.filter((item) => !(item.kind === "screenshot" && item.selectionId === selectionId)),
       updatedAt: new Date().toISOString(),
     });
   }
@@ -133,10 +147,10 @@ export async function removeSelectionFromBoards(projectId: string, selectionId: 
 export async function removePageFromBoards(projectId: string, pageSlug: string): Promise<void> {
   const boards = await listBoards(projectId);
   for (const board of boards) {
-    if (!board.items.some((item) => item.pageSlug === pageSlug)) continue;
+    if (!board.items.some((item) => item.kind === "screenshot" && item.pageSlug === pageSlug)) continue;
     await writeBoard({
       ...board,
-      items: board.items.filter((item) => item.pageSlug !== pageSlug),
+      items: board.items.filter((item) => !(item.kind === "screenshot" && item.pageSlug === pageSlug)),
       updatedAt: new Date().toISOString(),
     });
   }

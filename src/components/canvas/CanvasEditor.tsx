@@ -10,7 +10,9 @@ import { backgroundStyleFor, watermarkStyle } from "@/components/board/BoardCanv
 import { DEFAULT_CROP } from "@/types/review";
 import type { CropFit } from "@/types/review";
 import { defaultFrameWidth, frameOuterHeight, defaultFrameForDevice, defaultContentFit } from "@/lib/board/frameSize";
-import type { Board, BackgroundFit, BoardBackground, CanvasItem, FrameVariant } from "@/types/board";
+import { textItemStyle } from "@/lib/board/textStyle";
+import { FONT_FAMILY_NAMES, cssFontFamily } from "@/lib/fonts";
+import type { Board, BackgroundFit, BoardBackground, CanvasItem, ScreenshotItem, TextItem, TextAlign, FrameVariant } from "@/types/board";
 import type { BackgroundImage } from "@/types/backgroundImage";
 import type { SelectionWithPage } from "@/lib/storage/review";
 
@@ -42,6 +44,9 @@ const CONTENT_FIT_OPTIONS: { value: CropFit; label: string; description: string 
   { value: "fill", label: "Cover", description: "Fill the frame, cropping overflow" },
   { value: "stretch", label: "Stretch", description: "Fill exactly, may distort" },
 ];
+const TEXT_ALIGN_OPTIONS: TextAlign[] = ["left", "center", "right"];
+const DEFAULT_TEXT_WIDTH = 480;
+const DEFAULT_TEXT_HEIGHT = 100;
 
 function mediaSrc(projectId: string, filename: string): string {
   return `/api/media/projects/${projectId}/captures/selections/${filename}`;
@@ -194,12 +199,18 @@ export function CanvasEditor({
   const [items, setItems] = useState<CanvasItem[]>(initialBoard.items);
   const [pageFilter, setPageFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Which text item (if any) is currently being typed into — a text item's
+  // content div is only made contentEditable while its id matches this, so
+  // a plain click just selects/drags the box like anything else, and a
+  // double-click is what commits to editing its text.
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [exportUrl, setExportUrl] = useState<string | null>(null);
   const [exportPhase, setExportPhase] = useState<"idle" | "exporting" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const textRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const editorWidth = initialBoard.canvasWidth * EDITOR_SCALE;
   const editorHeight = initialBoard.canvasHeight * EDITOR_SCALE;
@@ -213,12 +224,16 @@ export function CanvasEditor({
     setExportUrl(null);
   }
 
+  function nextZIndex(): number {
+    return items.length === 0 ? 1 : Math.max(...items.map((i) => i.zIndex)) + 1;
+  }
+
   function addItem(selection: SelectionWithPage, dropX: number, dropY: number) {
     const frame = defaultFrameForDevice(selection.sourceDevice);
     const width = defaultFrameWidth(frame);
     const height = frameOuterHeight(frame, width);
-    const nextZ = items.length === 0 ? 1 : Math.max(...items.map((i) => i.zIndex)) + 1;
-    const item: CanvasItem = {
+    const item: ScreenshotItem = {
+      kind: "screenshot",
       id: nanoid(12),
       pageSlug: selection.pageSlug,
       selectionId: selection.id,
@@ -226,7 +241,7 @@ export function CanvasEditor({
       y: Math.max(0, Math.round(dropY - height / 2)),
       width,
       height,
-      zIndex: nextZ,
+      zIndex: nextZIndex(),
       frame,
       contentFit: defaultContentFit(frame),
     };
@@ -235,28 +250,81 @@ export function CanvasEditor({
     markDirty();
   }
 
+  function addTextItem(dropX: number, dropY: number) {
+    const width = DEFAULT_TEXT_WIDTH;
+    const height = DEFAULT_TEXT_HEIGHT;
+    const item: TextItem = {
+      kind: "text",
+      id: nanoid(12),
+      x: Math.max(0, Math.round(dropX - width / 2)),
+      y: Math.max(0, Math.round(dropY - height / 2)),
+      width,
+      height,
+      zIndex: nextZIndex(),
+      text: "Double-click to edit",
+      fontFamily: "Poppins",
+      fontSize: 48,
+      bold: false,
+      italic: false,
+      underline: false,
+      color: "#ffffff",
+      align: "left",
+      letterSpacing: 0,
+      lineHeight: 1.2,
+    };
+    setItems((prev) => [...prev, item]);
+    setSelectedId(item.id);
+    setEditingTextId(item.id);
+    markDirty();
+  }
+
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     const raw = e.dataTransfer.getData("application/json");
     if (!raw) return;
-    let payload: { selectionId: string };
+    let payload: { kind: "text" } | { kind: "screenshot"; selectionId: string };
     try {
       payload = JSON.parse(raw);
     } catch {
       return;
     }
-    const selection = selectionById.get(payload.selectionId);
-    if (!selection || !canvasRef.current) return;
+    if (!canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const dropX = (e.clientX - rect.left) / EDITOR_SCALE;
     const dropY = (e.clientY - rect.top) / EDITOR_SCALE;
+
+    if (payload.kind === "text") {
+      addTextItem(dropX, dropY);
+      return;
+    }
+    const selection = selectionById.get(payload.selectionId);
+    if (!selection) return;
     addItem(selection, dropX, dropY);
   }
 
-  function updateItem(id: string, patch: Partial<CanvasItem>) {
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  // A single low-level setter, plus three narrowly-typed wrappers around it.
+  // CanvasItem is a discriminated union, so `Partial<CanvasItem>` alone
+  // doesn't type-check a spread update safely (nothing stops a screenshot
+  // patch leaking a text-only field onto a text item's id, or vice versa) —
+  // these three keep each call site checked against the one shape it's
+  // actually allowed to touch, while sharing the same underlying state update.
+  function patchItem(id: string, patch: Record<string, unknown>) {
+    setItems((prev) => prev.map((it) => (it.id === id ? ({ ...it, ...patch } as CanvasItem) : it)));
     markDirty();
+  }
+
+  function updateItem(id: string, patch: Partial<ScreenshotItem>) {
+    patchItem(id, patch);
+  }
+
+  function updateTextItem(id: string, patch: Partial<TextItem>) {
+    patchItem(id, patch);
+  }
+
+  // Position/size/layer — the fields every item kind has in common.
+  function updatePosition(id: string, patch: { x?: number; y?: number; width?: number; height?: number; zIndex?: number }) {
+    patchItem(id, patch);
   }
 
   function removeItem(id: string) {
@@ -267,17 +335,17 @@ export function CanvasEditor({
 
   function bringToFront(id: string) {
     const maxZ = items.length === 0 ? 0 : Math.max(...items.map((i) => i.zIndex));
-    updateItem(id, { zIndex: maxZ + 1 });
+    updatePosition(id, { zIndex: maxZ + 1 });
   }
 
   function sendToBack(id: string) {
     const minZ = items.length === 0 ? 0 : Math.min(...items.map((i) => i.zIndex));
-    updateItem(id, { zIndex: minZ - 1 });
+    updatePosition(id, { zIndex: minZ - 1 });
   }
 
   function changeFrame(id: string, frame: FrameVariant) {
     const item = items.find((it) => it.id === id);
-    if (!item) return;
+    if (!item || item.kind !== "screenshot") return;
     // Re-defaults the content fit for the new frame type each time (rather
     // than carrying over an explicit choice from a different frame shape) —
     // simple and predictable; re-pick it afterward if needed.
@@ -365,7 +433,7 @@ export function CanvasEditor({
   // doesn't fight the board-name input or anything else.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (!selectedId) return;
+      if (!selectedId || editingTextId) return;
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
 
       const activeTag = document.activeElement?.tagName;
@@ -382,7 +450,23 @@ export function CanvasEditor({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedId]);
+  }, [selectedId, editingTextId]);
+
+  // Entering edit mode on a text item doesn't hand the browser focus (or a
+  // cursor position) automatically — a contentEditable div only gets that
+  // via an explicit imperative focus() + Selection/Range call, done here
+  // right after the div renders as editable.
+  useEffect(() => {
+    if (!editingTextId) return;
+    const el = textRefs.current[editingTextId];
+    if (!el) return;
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, [editingTextId]);
 
   async function handleSave(): Promise<boolean> {
     setSaving(true);
@@ -582,6 +666,19 @@ export function CanvasEditor({
 
       <div className="flex flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
         <aside className="w-full shrink-0 overflow-y-auto border-b border-slate-800 p-4 lg:w-72 lg:border-r lg:border-b-0">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Text</h2>
+          <div
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData("application/json", JSON.stringify({ kind: "text" }));
+            }}
+            className="mb-4 cursor-grab rounded-lg border border-dashed border-slate-700 px-3 py-3 text-center hover:border-indigo-500"
+            title="Drag onto the canvas to add a text box"
+          >
+            <p className="text-lg font-bold leading-none">T</p>
+            <p className="mt-1 text-[11px] text-slate-500">Drag onto canvas to add text</p>
+          </div>
+
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
             Cropped screenshots — drag onto the canvas
           </h2>
@@ -616,7 +713,7 @@ export function CanvasEditor({
                     key={s.id}
                     draggable
                     onDragStart={(e) => {
-                      e.dataTransfer.setData("application/json", JSON.stringify({ selectionId: s.id }));
+                      e.dataTransfer.setData("application/json", JSON.stringify({ kind: "screenshot", selectionId: s.id }));
                     }}
                     className="cursor-grab space-y-1 rounded-lg border border-slate-800 p-2 hover:border-slate-600"
                     title={`${s.pageLabel} — ${s.label}`}
@@ -682,7 +779,7 @@ export function CanvasEditor({
           >
             {items.length === 0 && (
               <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-500">
-                Drag a screenshot here to get started
+                Drag a screenshot or a text box here to get started
               </p>
             )}
             {items.map((item) => (
@@ -690,15 +787,16 @@ export function CanvasEditor({
                 key={item.id}
                 size={{ width: item.width * EDITOR_SCALE, height: item.height * EDITOR_SCALE }}
                 position={{ x: item.x * EDITOR_SCALE, y: item.y * EDITOR_SCALE }}
-                lockAspectRatio={item.frame !== "none"}
+                lockAspectRatio={item.kind === "screenshot" && item.frame !== "none"}
                 minWidth={40}
                 minHeight={40}
                 bounds="parent"
+                disableDragging={item.kind === "text" && editingTextId === item.id}
                 style={{ zIndex: item.zIndex, outline: selectedId === item.id ? "2px solid #6366f1" : "none" }}
                 onDragStart={() => setSelectedId(item.id)}
-                onDragStop={(_e, d) => updateItem(item.id, { x: Math.round(d.x / EDITOR_SCALE), y: Math.round(d.y / EDITOR_SCALE) })}
+                onDragStop={(_e, d) => updatePosition(item.id, { x: Math.round(d.x / EDITOR_SCALE), y: Math.round(d.y / EDITOR_SCALE) })}
                 onResizeStop={(_e, _dir, ref, _delta, position) =>
-                  updateItem(item.id, {
+                  updatePosition(item.id, {
                     width: Math.round(ref.offsetWidth / EDITOR_SCALE),
                     height: Math.round(ref.offsetHeight / EDITOR_SCALE),
                     x: Math.round(position.x / EDITOR_SCALE),
@@ -707,40 +805,59 @@ export function CanvasEditor({
                 }
                 onClick={() => setSelectedId(item.id)}
               >
-                <div style={{ width: "100%", height: "100%", overflow: "hidden" }}>
+                <div style={{ width: "100%", height: "100%", overflow: item.kind === "text" ? "visible" : "hidden" }}>
                   <div style={{ transform: `scale(${EDITOR_SCALE})`, transformOrigin: "top left", width: item.width, height: item.height }}>
-                    {(() => {
-                      const selection = selectionById.get(item.selectionId);
-                      const src = selection ? mediaSrc(projectId, selection.filename) : null;
-                      const crop = {
-                        ...DEFAULT_CROP,
-                        fit: item.contentFit ?? defaultContentFit(item.frame),
-                        y: item.contentY ?? 0.5,
-                      };
-                      const contentBackground = item.contentFitColor ?? "#ffffff";
-                      if (item.frame === "none") {
+                    {item.kind === "text" ? (
+                      <div
+                        ref={(el) => {
+                          textRefs.current[item.id] = el;
+                        }}
+                        contentEditable={editingTextId === item.id}
+                        suppressContentEditableWarning
+                        onDoubleClick={() => setEditingTextId(item.id)}
+                        onBlur={(e) => {
+                          if (editingTextId !== item.id) return;
+                          updateTextItem(item.id, { text: e.currentTarget.innerText });
+                          setEditingTextId(null);
+                        }}
+                        style={{ ...textItemStyle(item), cursor: editingTextId === item.id ? "text" : "inherit" }}
+                      >
+                        {item.text}
+                      </div>
+                    ) : (
+                      (() => {
+                        const selection = selectionById.get(item.selectionId);
+                        const src = selection ? mediaSrc(projectId, selection.filename) : null;
+                        const crop = {
+                          ...DEFAULT_CROP,
+                          fit: item.contentFit ?? defaultContentFit(item.frame),
+                          y: item.contentY ?? 0.5,
+                        };
+                        const contentBackground = item.contentFitColor ?? "#ffffff";
+                        if (item.frame === "none") {
+                          return (
+                            <PlainFrame
+                              src={src}
+                              crop={crop}
+                              width={item.width}
+                              height={item.height}
+                              contentBackground={contentBackground}
+                              style={{ left: 0, top: 0 }}
+                            />
+                          );
+                        }
                         return (
-                          <PlainFrame
+                          <DeviceFrame
+                            variant={item.frame}
                             src={src}
                             crop={crop}
                             width={item.width}
-                            height={item.height}
                             contentBackground={contentBackground}
                             style={{ left: 0, top: 0 }}
                           />
                         );
-                      }
-                      return (
-                        <DeviceFrame
-                          variant={item.frame}
-                          src={src}
-                          crop={crop}
-                          width={item.width}
-                          contentBackground={contentBackground}
-                          style={{ left: 0, top: 0 }}
-                        />
-                      );
-                    })()}
+                      })()
+                    )}
                   </div>
                 </div>
               </Rnd>
@@ -756,67 +873,182 @@ export function CanvasEditor({
           {selectedItem ? (
             <>
               <p className="text-xs text-slate-500">
-                Use the arrow keys to nudge position (hold Shift for bigger steps) — handy if dragging feels
-                imprecise.
+                {selectedItem.kind === "text"
+                  ? "Double-click the text on the canvas to edit its content."
+                  : "Use the arrow keys to nudge position (hold Shift for bigger steps) — handy if dragging feels imprecise."}
               </p>
-              <div className="space-y-1.5">
-                <label className="text-xs text-slate-400">Frame</label>
-                <select
-                  value={selectedItem.frame}
-                  onChange={(e) => changeFrame(selectedItem.id, e.target.value as FrameVariant)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                >
-                  {FRAME_OPTIONS.map((f) => (
-                    <option key={f} value={f}>
-                      {f === "none" ? "No frame" : f[0].toUpperCase() + f.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-slate-400">Content fit</label>
-                <select
-                  value={selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)}
-                  onChange={(e) => changeContentFit(selectedItem.id, e.target.value as CropFit)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                >
-                  {CONTENT_FIT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-slate-500">
-                  {CONTENT_FIT_OPTIONS.find((opt) => opt.value === (selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)))
-                    ?.description}
-                </p>
-                {(selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)) === "fit" && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <label className="text-xs text-slate-400">Gap color</label>
-                    <input
-                      type="color"
-                      value={selectedItem.contentFitColor ?? "#ffffff"}
-                      onChange={(e) => changeContentFitColor(selectedItem.id, e.target.value)}
-                      className="h-7 w-10 cursor-pointer rounded border border-slate-700 bg-slate-900 p-0.5"
-                      title="Fill color for the empty space Fit mode can leave around the screenshot"
-                    />
-                    <span className="text-xs text-slate-500">{selectedItem.contentFitColor ?? "#ffffff"}</span>
-                    {selectedItem.contentFitColor && selectedItem.contentFitColor !== "#ffffff" && (
-                      <button
-                        onClick={() => changeContentFitColor(selectedItem.id, "#ffffff")}
-                        className="ml-auto text-xs text-slate-500 hover:text-slate-300"
-                      >
-                        Reset
-                      </button>
+              {selectedItem.kind === "text" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-slate-400">Font family</label>
+                    <select
+                      value={selectedItem.fontFamily}
+                      onChange={(e) => updateTextItem(selectedItem.id, { fontFamily: e.target.value })}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                    >
+                      {FONT_FAMILY_NAMES.map((f) => (
+                        <option key={f} value={f} style={{ fontFamily: cssFontFamily(f) }}>
+                          {f}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-slate-400">Size (px)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={selectedItem.fontSize}
+                        onChange={(e) => updateTextItem(selectedItem.id, { fontSize: Math.max(1, Number(e.target.value)) })}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-slate-400">Color</label>
+                      <input
+                        type="color"
+                        value={selectedItem.color}
+                        onChange={(e) => updateTextItem(selectedItem.id, { color: e.target.value })}
+                        className="h-9 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900 p-0.5"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => updateTextItem(selectedItem.id, { bold: !selectedItem.bold })}
+                      title="Bold"
+                      className={`flex-1 rounded-lg border px-3 py-2 text-xs font-bold ${
+                        selectedItem.bold ? "border-indigo-500 bg-indigo-500/10 text-indigo-300" : "border-slate-700 text-slate-400 hover:border-slate-500"
+                      }`}
+                    >
+                      B
+                    </button>
+                    <button
+                      onClick={() => updateTextItem(selectedItem.id, { italic: !selectedItem.italic })}
+                      title="Italic"
+                      className={`flex-1 rounded-lg border px-3 py-2 text-xs italic ${
+                        selectedItem.italic ? "border-indigo-500 bg-indigo-500/10 text-indigo-300" : "border-slate-700 text-slate-400 hover:border-slate-500"
+                      }`}
+                    >
+                      I
+                    </button>
+                    <button
+                      onClick={() => updateTextItem(selectedItem.id, { underline: !selectedItem.underline })}
+                      title="Underline"
+                      className={`flex-1 rounded-lg border px-3 py-2 text-xs underline ${
+                        selectedItem.underline
+                          ? "border-indigo-500 bg-indigo-500/10 text-indigo-300"
+                          : "border-slate-700 text-slate-400 hover:border-slate-500"
+                      }`}
+                    >
+                      U
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-slate-400">Alignment</label>
+                    <div className="flex gap-1.5">
+                      {TEXT_ALIGN_OPTIONS.map((a) => (
+                        <button
+                          key={a}
+                          onClick={() => updateTextItem(selectedItem.id, { align: a })}
+                          className={`flex-1 rounded-lg border px-3 py-2 text-xs capitalize ${
+                            selectedItem.align === a
+                              ? "border-indigo-500 bg-indigo-500/10 text-indigo-300"
+                              : "border-slate-700 text-slate-400 hover:border-slate-500"
+                          }`}
+                        >
+                          {a}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-slate-400">Letter spacing</label>
+                      <input
+                        type="number"
+                        step={0.5}
+                        value={selectedItem.letterSpacing}
+                        onChange={(e) => updateTextItem(selectedItem.id, { letterSpacing: Number(e.target.value) })}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-slate-400">Line height</label>
+                      <input
+                        type="number"
+                        step={0.1}
+                        min={0.1}
+                        value={selectedItem.lineHeight}
+                        onChange={(e) => updateTextItem(selectedItem.id, { lineHeight: Math.max(0.1, Number(e.target.value)) })}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-slate-400">Frame</label>
+                    <select
+                      value={selectedItem.frame}
+                      onChange={(e) => changeFrame(selectedItem.id, e.target.value as FrameVariant)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                    >
+                      {FRAME_OPTIONS.map((f) => (
+                        <option key={f} value={f}>
+                          {f === "none" ? "No frame" : f[0].toUpperCase() + f.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-slate-400">Content fit</label>
+                    <select
+                      value={selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)}
+                      onChange={(e) => changeContentFit(selectedItem.id, e.target.value as CropFit)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                    >
+                      {CONTENT_FIT_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-slate-500">
+                      {CONTENT_FIT_OPTIONS.find((opt) => opt.value === (selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)))
+                        ?.description}
+                    </p>
+                    {(selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)) === "fit" && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <label className="text-xs text-slate-400">Gap color</label>
+                        <input
+                          type="color"
+                          value={selectedItem.contentFitColor ?? "#ffffff"}
+                          onChange={(e) => changeContentFitColor(selectedItem.id, e.target.value)}
+                          className="h-7 w-10 cursor-pointer rounded border border-slate-700 bg-slate-900 p-0.5"
+                          title="Fill color for the empty space Fit mode can leave around the screenshot"
+                        />
+                        <span className="text-xs text-slate-500">{selectedItem.contentFitColor ?? "#ffffff"}</span>
+                        {selectedItem.contentFitColor && selectedItem.contentFitColor !== "#ffffff" && (
+                          <button
+                            onClick={() => changeContentFitColor(selectedItem.id, "#ffffff")}
+                            className="ml-auto text-xs text-slate-500 hover:text-slate-300"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-              {(selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)) !== "stretch" && (
-                <VerticalPositionControl
-                  value={selectedItem.contentY ?? 0.5}
-                  onChange={(y) => changeContentY(selectedItem.id, y)}
-                />
+                  {(selectedItem.contentFit ?? defaultContentFit(selectedItem.frame)) !== "stretch" && (
+                    <VerticalPositionControl
+                      value={selectedItem.contentY ?? 0.5}
+                      onChange={(y) => changeContentY(selectedItem.id, y)}
+                    />
+                  )}
+                </>
               )}
               <div className="flex gap-2">
                 <button

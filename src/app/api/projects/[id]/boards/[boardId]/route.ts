@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { assertSafeId } from "@/lib/storage/paths";
 import { readBoard, updateBoard, deleteBoard, type BoardPatch } from "@/lib/storage/boards";
 import { readBackgroundImage } from "@/lib/storage/backgroundImages";
-import type { BackgroundFit, CanvasItem, FrameVariant } from "@/types/board";
+import type { BackgroundFit, CanvasItem, FrameVariant, TextAlign } from "@/types/board";
 import type { CropFit } from "@/types/review";
 
 export const runtime = "nodejs";
@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 const FRAME_VARIANTS: FrameVariant[] = ["desktop", "laptop", "tablet", "mobile", "none"];
 const BACKGROUND_FITS: BackgroundFit[] = ["cover", "repeat", "stretch"];
 const CONTENT_FITS: CropFit[] = ["fit", "fill", "stretch"];
+const TEXT_ALIGNS: TextAlign[] = ["left", "center", "right"];
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 function parseItems(raw: unknown): CanvasItem[] | null {
@@ -18,15 +19,66 @@ function parseItems(raw: unknown): CanvasItem[] | null {
   for (const entry of raw) {
     if (typeof entry !== "object" || entry === null) return null;
     const e = entry as Record<string, unknown>;
+
     if (
       typeof e.id !== "string" ||
-      typeof e.pageSlug !== "string" ||
-      typeof e.selectionId !== "string" ||
       typeof e.x !== "number" ||
       typeof e.y !== "number" ||
       typeof e.width !== "number" ||
       typeof e.height !== "number" ||
-      typeof e.zIndex !== "number" ||
+      typeof e.zIndex !== "number"
+    ) {
+      return null;
+    }
+
+    if (e.kind === "text") {
+      if (
+        typeof e.text !== "string" ||
+        typeof e.fontFamily !== "string" ||
+        e.fontFamily.trim().length === 0 ||
+        typeof e.fontSize !== "number" ||
+        typeof e.bold !== "boolean" ||
+        typeof e.italic !== "boolean" ||
+        typeof e.underline !== "boolean" ||
+        typeof e.color !== "string" ||
+        !HEX_COLOR_PATTERN.test(e.color) ||
+        typeof e.align !== "string" ||
+        !TEXT_ALIGNS.includes(e.align as TextAlign) ||
+        typeof e.letterSpacing !== "number" ||
+        typeof e.lineHeight !== "number"
+      ) {
+        return null;
+      }
+      items.push({
+        kind: "text",
+        id: e.id,
+        x: e.x,
+        y: e.y,
+        width: Math.max(20, e.width),
+        height: Math.max(20, e.height),
+        zIndex: e.zIndex,
+        text: e.text,
+        fontFamily: e.fontFamily,
+        fontSize: Math.max(1, e.fontSize),
+        bold: e.bold,
+        italic: e.italic,
+        underline: e.underline,
+        color: e.color,
+        align: e.align as TextAlign,
+        letterSpacing: e.letterSpacing,
+        lineHeight: Math.max(0.1, e.lineHeight),
+      });
+      continue;
+    }
+
+    // Anything not explicitly "text" is a screenshot — covers both the
+    // normal case (kind: "screenshot") and legacy items with no kind field
+    // at all (readBoard backfills those before a client ever sees them, but
+    // this stays lenient regardless, since a client only ever resends what
+    // it last read).
+    if (
+      typeof e.pageSlug !== "string" ||
+      typeof e.selectionId !== "string" ||
       typeof e.frame !== "string" ||
       !FRAME_VARIANTS.includes(e.frame as FrameVariant) ||
       ("contentFit" in e && (typeof e.contentFit !== "string" || !CONTENT_FITS.includes(e.contentFit as CropFit))) ||
@@ -36,6 +88,7 @@ function parseItems(raw: unknown): CanvasItem[] | null {
       return null;
     }
     items.push({
+      kind: "screenshot",
       id: e.id,
       pageSlug: e.pageSlug,
       selectionId: e.selectionId,
