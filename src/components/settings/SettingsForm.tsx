@@ -68,19 +68,24 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-6 py-12">
-      <div className="mx-auto max-w-lg space-y-8">
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-48 left-1/2 h-140 w-225 -translate-x-1/2 rounded-full bg-linear-to-br from-indigo-600/25 via-violet-600/10 to-transparent blur-3xl"
+      />
+
+      <div className="relative mx-auto max-w-lg space-y-8 px-6 py-12">
         <header className="space-y-2">
           <Link href="/" className="text-xs text-slate-500 hover:text-slate-300">
             ← Dashboard
           </Link>
-          <h1 className="text-2xl font-semibold">Agency settings</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Agency settings</h1>
           <p className="text-slate-400 text-sm">
             These become the starting defaults for every new project — they don&apos;t change existing projects.
           </p>
         </header>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
           <Field label="Agency name">
             <input
               value={agencyName}
@@ -214,7 +219,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-medium hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-gradient-accent glow-accent rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {saving ? "Saving…" : "Save settings"}
             </button>

@@ -111,7 +111,7 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
 
   if (!capture || capture.status !== "ready" || !capture.images) {
     return (
-      <section className="space-y-2">
+      <section className="space-y-2 rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
         <div>
           <h2 className="text-sm font-semibold">{page.label}</h2>
           <p className="text-xs text-slate-500">{page.url}</p>
@@ -214,7 +214,7 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
       <div>
         <h2 className="text-sm font-semibold">{page.label}</h2>
         <p className="text-xs text-slate-500">{page.url}</p>
@@ -228,8 +228,10 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
               <button
                 key={d}
                 onClick={() => handleDeviceChange(d)}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
-                  device === d ? "border-indigo-500 text-indigo-300" : "border-slate-700 text-slate-400 hover:border-slate-500"
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition ${
+                  device === d
+                    ? "border-indigo-500 bg-indigo-500/10 text-indigo-300"
+                    : "border-slate-700 text-slate-400 hover:border-slate-500"
                 }`}
               >
                 {d}
@@ -247,8 +249,10 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
               <button
                 key={preset.label}
                 onClick={() => handleAspectChange(preset.value)}
-                className={`rounded-full border px-3 py-1.5 text-xs ${
-                  aspect === preset.value ? "border-emerald-500 text-emerald-300" : "border-slate-700 text-slate-400 hover:border-slate-500"
+                className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                  aspect === preset.value
+                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
+                    : "border-slate-700 text-slate-400 hover:border-slate-500"
                 }`}
               >
                 {preset.label}
@@ -258,7 +262,7 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
         </div>
       </div>
 
-      <div className="overflow-y-auto rounded-xl border border-slate-800 bg-slate-900" style={{ maxHeight: "70vh" }}>
+      <div className="overflow-y-auto rounded-xl border border-slate-800 bg-slate-950" style={{ maxHeight: "70vh" }}>
         {fullPageSrc ? (
           <ReactCrop crop={crop} onChange={(_, percentCrop) => setCrop(percentCrop)} onComplete={(c) => setPixelCrop(c)} aspect={aspect}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -282,7 +286,7 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
         <button
           onClick={handleAddToList}
           disabled={saving}
-          className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className="bg-gradient-accent glow-accent shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
         >
           {saving ? "Adding…" : "Add this to list"}
         </button>
@@ -293,7 +297,7 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
       {selections.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
           {selections.map((s) => (
-            <div key={s.id} className="space-y-1.5 rounded-lg border border-slate-800 p-2">
+            <div key={s.id} className="space-y-1.5 rounded-lg border border-slate-800 bg-slate-950/60 p-2 transition hover:border-slate-700">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`/api/media/projects/${projectId}/captures/selections/${s.filename}`}

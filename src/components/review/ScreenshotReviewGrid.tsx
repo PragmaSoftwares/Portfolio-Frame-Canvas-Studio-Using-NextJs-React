@@ -20,13 +20,18 @@ interface ScreenshotReviewGridProps {
 
 export function ScreenshotReviewGrid({ projectId, projectName, pagesData }: ScreenshotReviewGridProps) {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-6 py-12">
-      <div className="mx-auto max-w-5xl space-y-10">
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-48 left-1/2 h-140 w-225 -translate-x-1/2 rounded-full bg-linear-to-br from-indigo-600/25 via-violet-600/10 to-transparent blur-3xl"
+      />
+
+      <div className="relative mx-auto max-w-5xl space-y-10 px-6 py-12">
         <header className="space-y-2">
           <Link href={`/projects/${projectId}`} className="text-xs text-slate-500 hover:text-slate-300">
             ← {projectName}
           </Link>
-          <h1 className="text-2xl font-semibold">Screenshot review</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Screenshot review</h1>
           <p className="text-slate-400 text-sm">
             Pick a device, drag a crop area over the full-page screenshot, and click &quot;Add this to list&quot;.
             Repeat for as many sections as you want — even several from the same page. Nothing here modifies the
