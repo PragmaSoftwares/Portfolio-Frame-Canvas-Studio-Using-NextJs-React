@@ -83,6 +83,18 @@ export function frameImageHeight(variant: DeviceFrameProps["variant"], width: nu
   return Math.round(width * (asset.imageHeight / asset.imageWidth));
 }
 
+/**
+ * The real screen cutout's own aspect ratio (width/height), pixel-measured
+ * from the source PNG — the single source of truth for "what aspect ratio
+ * should a screenshot be to fill this frame without letterboxing." Used by
+ * the review screen's crop-aspect presets so they match the frames a
+ * screenshot will actually end up in, instead of a hand-picked guess.
+ */
+export function frameHoleAspect(variant: DeviceFrameProps["variant"]): number {
+  const { width, height } = FRAME_ASSETS[variant].hole;
+  return width / height;
+}
+
 function ScreenContent({
   src,
   crop,

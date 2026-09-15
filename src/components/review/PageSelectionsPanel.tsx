@@ -7,6 +7,7 @@ import "react-image-crop/dist/ReactCrop.css";
 import type { ApprovedPage } from "@/types/project";
 import type { PageCaptureMeta } from "@/types/capture";
 import type { ScreenshotSelection } from "@/types/review";
+import { frameHoleAspect } from "@/components/board/DeviceFrame";
 
 interface PageSelectionsPanelProps {
   projectId: string;
@@ -19,10 +20,24 @@ type Device = "desktop" | "tablet" | "mobile";
 
 const DEVICES: Device[] = ["desktop", "tablet", "mobile"];
 
-const ASPECT_PRESETS: { label: string; value: number | undefined }[] = [
+// The capture device tabs above only cover desktop/tablet/mobile (that's all
+// the capture pipeline produces), but a crop is just as often destined for a
+// board's "laptop" frame by user choice — so it gets a preset too, it's just
+// not auto-selected by any capture tab. Pulled from the same pixel-measured
+// FRAME_ASSETS DeviceFrame itself renders from, so these can never drift out
+// of sync with the actual frames a screenshot ends up displayed in.
+const DEVICE_FRAME_ASPECTS: Record<Device, number> = {
+  desktop: frameHoleAspect("desktop"),
+  tablet: frameHoleAspect("tablet"),
+  mobile: frameHoleAspect("mobile"),
+};
+
+const ASPECT_PRESETS: { label: string; value: number | undefined; device?: Device }[] = [
   { label: "Free", value: undefined },
-  { label: "Desktop", value: 1440 / 1000 },
-  { label: "Mobile", value: 390 / 844 },
+  { label: "Desktop", value: DEVICE_FRAME_ASPECTS.desktop, device: "desktop" },
+  { label: "Laptop", value: frameHoleAspect("laptop") },
+  { label: "Tablet", value: DEVICE_FRAME_ASPECTS.tablet, device: "tablet" },
+  { label: "Mobile", value: DEVICE_FRAME_ASPECTS.mobile, device: "mobile" },
   { label: "Square", value: 1 },
 ];
 
@@ -74,7 +89,7 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
   const [device, setDevice] = useState<Device>("desktop");
   const [crop, setCrop] = useState<Crop>();
   const [pixelCrop, setPixelCrop] = useState<PixelCrop>();
-  const [aspect, setAspect] = useState<number | undefined>(1440 / 1000);
+  const [aspect, setAspect] = useState<number | undefined>(DEVICE_FRAME_ASPECTS.desktop);
   const [label, setLabel] = useState("");
   const [selections, setSelections] = useState(initialSelections);
   const [saving, setSaving] = useState(false);
@@ -123,6 +138,10 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
     setDevice(next);
     setCrop(undefined);
     setPixelCrop(undefined);
+    // Default the crop aspect to whichever frame this device's screenshots
+    // actually land in — still just a starting point, "Free"/another preset
+    // remains one click away for a crop that isn't going in a device frame.
+    setAspect(DEVICE_FRAME_ASPECTS[next]);
   }
 
   async function handleAddToList() {
