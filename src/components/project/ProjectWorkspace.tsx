@@ -259,6 +259,18 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
     }
   }
 
+  async function handleDuplicateBoard(boardId: string) {
+    setBoardError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/boards/${boardId}/duplicate`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not duplicate that board.");
+      setBoards((prev) => [data.board, ...prev]);
+    } catch (err) {
+      setBoardError(err instanceof Error ? err.message : "Could not duplicate that board.");
+    }
+  }
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
       <div
@@ -491,6 +503,12 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
                     <Link href={`/projects/${project.id}/boards/${board.id}`} className="text-indigo-400 hover:text-indigo-300">
                       Open
                     </Link>
+                    <button
+                      onClick={() => handleDuplicateBoard(board.id)}
+                      className="text-slate-400 hover:text-slate-200"
+                    >
+                      Duplicate
+                    </button>
                     <button
                       onClick={() => handleDeleteBoard(board.id, board.name)}
                       className="ml-auto text-red-400/90 hover:text-red-300"

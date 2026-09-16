@@ -108,6 +108,27 @@ export async function createBoard(projectId: string, name: string): Promise<Boar
   return board;
 }
 
+// Duplicates a board's full contents (background, items, canvas size) under
+// a new id, same project. Unlike duplicateProject, there's nothing to
+// deliberately leave behind — a board has no dependent files of its own
+// (its items just reference selectionIds in the project's existing capture
+// store, same as the source board did), so this is a plain JSON clone.
+export async function duplicateBoard(projectId: string, boardId: string): Promise<Board | null> {
+  const source = await readBoard(projectId, boardId);
+  if (!source) return null;
+
+  const now = new Date().toISOString();
+  const copy: Board = {
+    ...source,
+    id: generateBoardId(),
+    name: `${source.name} (Copy)`,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await writeBoard(copy);
+  return copy;
+}
+
 export interface BoardPatch {
   name?: string;
   background?: BoardBackground;
