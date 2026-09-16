@@ -105,4 +105,9 @@ This is a personal/small-team tool, not a general-purpose design app:
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0)
+— free to use, modify, and share for noncommercial purposes (including
+building your own portfolio with it). Hosting, reselling, or otherwise
+commercially exploiting the software itself requires permission first. See
+[`LICENSE`](LICENSE) for the full legal text, or
+[`LICENSING.md`](LICENSING.md) for a plain-English explanation.

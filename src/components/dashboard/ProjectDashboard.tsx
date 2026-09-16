@@ -178,12 +178,12 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
 
         <footer className="flex flex-col items-center gap-2 border-t border-slate-800 pt-6 text-xs text-slate-600 sm:flex-row sm:justify-between">
           <a
-            href="https://choosealicense.com/licenses/mit/"
+            href="https://polyformproject.org/licenses/noncommercial/1.0.0"
             target="_blank"
             rel="noreferrer"
             className="hover:text-slate-400"
           >
-            MIT License
+            PolyForm Noncommercial License
           </a>
           <p>
             Built by{" "}
