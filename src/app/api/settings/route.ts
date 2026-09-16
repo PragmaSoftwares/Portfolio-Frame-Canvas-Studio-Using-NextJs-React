@@ -13,12 +13,6 @@ function asString(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
 }
 
-function asNullableString(value: unknown, fallback: string | null): string | null {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 function asHexColor(value: unknown, fallback: string): string {
@@ -43,7 +37,6 @@ export async function PUT(request: Request) {
 
   const updated: AgencySettings = {
     agencyName: asString(record.agencyName, current.agencyName),
-    agencyLogoPath: asNullableString(record.agencyLogoPath, current.agencyLogoPath),
     defaultWatermarkText: asString(record.defaultWatermarkText, current.defaultWatermarkText),
     defaultWatermarkVisible:
       typeof record.defaultWatermarkVisible === "boolean"

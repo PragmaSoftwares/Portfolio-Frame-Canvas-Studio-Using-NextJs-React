@@ -13,7 +13,6 @@ interface SettingsFormProps {
 export function SettingsForm({ initialSettings }: SettingsFormProps) {
   const router = useRouter();
   const [agencyName, setAgencyName] = useState(initialSettings.agencyName);
-  const [agencyLogoPath, setAgencyLogoPath] = useState(initialSettings.agencyLogoPath ?? "");
   const [defaultWatermarkText, setDefaultWatermarkText] = useState(initialSettings.defaultWatermarkText);
   const [defaultWatermarkVisible, setDefaultWatermarkVisible] = useState(initialSettings.defaultWatermarkVisible);
   const [watermarkColor, setWatermarkColor] = useState(initialSettings.watermarkColor);
@@ -40,7 +39,6 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agencyName,
-          agencyLogoPath: agencyLogoPath || null,
           defaultWatermarkText,
           defaultWatermarkVisible,
           watermarkColor,
@@ -86,15 +84,6 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
             <input
               value={agencyName}
               onChange={(e) => setAgencyName(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
-            />
-          </Field>
-
-          <Field label="Agency logo path or URL" hint="No upload yet — paste a path or URL.">
-            <input
-              value={agencyLogoPath}
-              onChange={(e) => setAgencyLogoPath(e.target.value)}
-              placeholder="/logo.svg or https://…"
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
             />
           </Field>

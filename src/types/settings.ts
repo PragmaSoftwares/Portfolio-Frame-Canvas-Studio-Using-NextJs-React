@@ -1,6 +1,5 @@
 export interface AgencySettings {
   agencyName: string;
-  agencyLogoPath: string | null;
   defaultWatermarkText: string;
   defaultWatermarkVisible: boolean;
   // Styling for the repeating diagonal watermark pattern — agency-wide, not
