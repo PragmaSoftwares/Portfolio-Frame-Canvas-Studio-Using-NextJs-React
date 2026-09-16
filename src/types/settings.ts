@@ -14,6 +14,5 @@ export interface AgencySettings {
   defaultBackgroundLight: string;
   defaultBackgroundDark: string;
   defaultFontFamily: string;
-  standardServices: string[];
   updatedAt: string;
 }

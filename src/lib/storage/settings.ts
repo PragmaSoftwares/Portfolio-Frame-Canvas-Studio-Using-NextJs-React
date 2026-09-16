@@ -18,7 +18,6 @@ const DEFAULT_SETTINGS: AgencySettings = {
   defaultBackgroundLight: "#f8fafc",
   defaultBackgroundDark: "#0f172a",
   defaultFontFamily: "System UI",
-  standardServices: [],
   updatedAt: new Date(0).toISOString(),
 };
 

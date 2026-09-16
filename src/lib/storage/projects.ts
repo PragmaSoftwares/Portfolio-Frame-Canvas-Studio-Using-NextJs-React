@@ -28,6 +28,17 @@ function migrateProject(raw: Record<string, unknown>): ProjectData {
   // Watermark moved from per-project to agency-wide (AgencySettings) — drop
   // the now-unused stored field from anything written before that change.
   delete raw.watermark;
+  // These belonged to the template-based board system, deleted when the
+  // free-form canvas replaced it — nothing has read any of them since, so
+  // drop them from anything written before the Customize page itself was
+  // removed rather than carrying dead keys forward indefinitely.
+  delete raw.headline;
+  delete raw.description;
+  delete raw.accentColor;
+  delete raw.backgroundPreference;
+  delete raw.logoPath;
+  delete raw.servicesDelivered;
+  delete raw.technologiesUsed;
   if (raw.assistedSetupAt === undefined) raw.assistedSetupAt = null;
   return raw as unknown as ProjectData;
 }
@@ -74,13 +85,6 @@ export interface UpdateProjectPatch {
   name?: string;
   mainUrl?: string;
   category?: string | null;
-  headline?: string | null;
-  description?: string | null;
-  accentColor?: string;
-  backgroundPreference?: "light" | "dark";
-  logoPath?: string | null;
-  servicesDelivered?: string[];
-  technologiesUsed?: string[];
   assistedSetupAt?: string | null;
 }
 
@@ -111,9 +115,9 @@ export async function touchProject(id: string): Promise<void> {
 }
 
 /**
- * Duplicates a project's metadata (branding, name, URLs, etc.) under a new id.
- * Captures and exports are not copied — they belong to the original project's
- * screenshots, not to the new one.
+ * Duplicates a project's metadata (name, URL, category, pages) under a new
+ * id. Captures and exports are not copied — they belong to the original
+ * project's screenshots, not to the new one.
  */
 export async function duplicateProject(id: string): Promise<ProjectData | null> {
   const source = await readProject(id);

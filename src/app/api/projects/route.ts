@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { validateCaptureUrl, UrlValidationError } from "@/lib/validation/url";
 import { generateProjectId, HOME_PAGE_SLUG } from "@/lib/storage/paths";
 import { writeProject, listProjects } from "@/lib/storage/projects";
-import { readSettings } from "@/lib/storage/settings";
 import type { ProjectData } from "@/types/project";
 
 export const runtime = "nodejs";
@@ -44,20 +43,12 @@ export async function POST(request: Request) {
 
   const category = typeof rawCategory === "string" && rawCategory.trim().length > 0 ? rawCategory.trim() : null;
 
-  const settings = await readSettings();
   const now = new Date().toISOString();
   const project: ProjectData = {
     id: generateProjectId(),
     name: rawName.trim(),
     mainUrl: parsedUrl.toString(),
     category,
-    headline: null,
-    description: null,
-    accentColor: "#6366f1",
-    backgroundPreference: "dark",
-    logoPath: settings.agencyLogoPath,
-    servicesDelivered: [...settings.standardServices],
-    technologiesUsed: [],
     approvedPages: [{ slug: HOME_PAGE_SLUG, url: parsedUrl.toString(), label: "Home" }],
     assistedSetupAt: null,
     createdAt: now,

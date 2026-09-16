@@ -19,11 +19,6 @@ function asNullableString(value: unknown, fallback: string | null): string | nul
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function asStringArray(value: unknown, fallback: string[]): string[] {
-  if (!Array.isArray(value)) return fallback;
-  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
-}
-
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 function asHexColor(value: unknown, fallback: string): string {
@@ -61,7 +56,6 @@ export async function PUT(request: Request) {
     defaultBackgroundLight: asString(record.defaultBackgroundLight, current.defaultBackgroundLight),
     defaultBackgroundDark: asString(record.defaultBackgroundDark, current.defaultBackgroundDark),
     defaultFontFamily: asString(record.defaultFontFamily, current.defaultFontFamily),
-    standardServices: asStringArray(record.standardServices, current.standardServices),
     updatedAt: new Date().toISOString(),
   };
 

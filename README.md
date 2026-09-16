@@ -95,8 +95,6 @@ Playwright always runs in the Node.js runtime, never the Edge runtime.
 
 This is a personal/small-team tool, not a general-purpose design app:
 
-- No batch export or a smaller (1000×750) export size yet — only the
-  2000×1500 master size, exported one board at a time.
 - Cookie/promo popups on captured pages are dismissed on a best-effort
   basis automatically, not guaranteed — for anything that slips through
   (or a Cloudflare/CAPTCHA check), use a project's "Assisted Setup" to

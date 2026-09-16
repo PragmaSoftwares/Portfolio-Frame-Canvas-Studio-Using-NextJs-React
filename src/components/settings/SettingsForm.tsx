@@ -24,7 +24,6 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [defaultBackgroundLight, setDefaultBackgroundLight] = useState(initialSettings.defaultBackgroundLight);
   const [defaultBackgroundDark, setDefaultBackgroundDark] = useState(initialSettings.defaultBackgroundDark);
   const [defaultFontFamily, setDefaultFontFamily] = useState(initialSettings.defaultFontFamily);
-  const [standardServices, setStandardServices] = useState(initialSettings.standardServices.join(", "));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,10 +50,6 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
           defaultBackgroundLight,
           defaultBackgroundDark,
           defaultFontFamily,
-          standardServices: standardServices
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
         }),
       });
       const data = await res.json();
@@ -208,15 +203,6 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                 </option>
               ))}
             </select>
-          </Field>
-
-          <Field label="Standard services" hint="Comma-separated. Copied into every new project as a starting point.">
-            <input
-              value={standardServices}
-              onChange={(e) => setStandardServices(e.target.value)}
-              placeholder="Web design, Development, SEO"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
-            />
           </Field>
 
           {error && (
