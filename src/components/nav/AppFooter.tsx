@@ -8,12 +8,12 @@
 export function AppFooter() {
   return (
     <div className="border-t border-slate-800/80 bg-slate-950">
-      <div className="mx-auto flex max-w-5xl flex-col items-center gap-2 px-6 py-6 text-xs text-slate-600 sm:flex-row sm:justify-between">
+      <div className="mx-auto flex max-w-5xl flex-col items-center gap-2 px-6 py-6 text-xs text-slate-400 sm:flex-row sm:justify-between">
         <a
           href="https://polyformproject.org/licenses/noncommercial/1.0.0"
           target="_blank"
           rel="noreferrer"
-          className="hover:text-slate-400"
+          className="transition hover:text-slate-100"
         >
           PolyForm Noncommercial License
         </a>
@@ -23,7 +23,7 @@ export function AppFooter() {
             href="https://www.pragmasoftwares.com/?utm_source=portfolio-frame-canvas-studio&utm_medium=referral"
             target="_blank"
             rel="noreferrer"
-            className="hover:text-slate-400"
+            className="transition hover:text-slate-100"
           >
             Pragma Softwares
           </a>
