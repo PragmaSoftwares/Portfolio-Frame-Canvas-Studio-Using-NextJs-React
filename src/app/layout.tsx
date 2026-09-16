@@ -1,3 +1,14 @@
+/**
+ * Portfolio Frame Canvas Studio
+ * Operated by Pragma Softwares (https://www.pragmasoftwares.com)
+ *
+ * Licensed under the PolyForm Noncommercial License 1.0.0 — see LICENSE
+ * (or https://polyformproject.org/licenses/noncommercial/1.0.0) for the
+ * full terms, LICENSING.md for a plain-English summary.
+ *
+ * Source: https://github.com/PragmaSoftwares/Portfolio-Frame-Canvas-Studio-Using-NextJs-React
+ */
+
 import type { Metadata } from "next";
 import { Poppins, Inter, Roboto, Open_Sans, Lato, Montserrat, Nunito, Work_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
