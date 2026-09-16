@@ -1,5 +1,10 @@
 # Licensing — plain-English summary
 
+**Official source: <https://github.com/PragmaSoftwares/Portfolio-Frame-Canvas-Studio-Using-NextJs-React>**
+— if this file reached you separately from that repository (a downloaded
+copy, a zip someone passed along), that link is where to find the current
+version, updates, and this same licensing information.
+
 This project is licensed under the **[PolyForm Noncommercial License
 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0)** — the
 full legal text is in [`LICENSE`](LICENSE). **That file is the actual

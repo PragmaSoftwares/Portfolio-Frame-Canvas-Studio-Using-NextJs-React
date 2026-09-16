@@ -1,5 +1,9 @@
 # Portfolio Frame Canvas Studio
 
+**Source: <https://github.com/PragmaSoftwares/Portfolio-Frame-Canvas-Studio-Using-NextJs-React>**
+— if you got this project as a downloaded copy rather than a git clone,
+this is where to find the latest version and updates.
+
 Create responsive device mockups from real website screenshots — no
 account, no cloud, no database. Everything runs locally.
 
@@ -46,8 +50,8 @@ arrangements, as you want.
 Requires Node.js 20+.
 
 ```bash
-git clone <this-repo>
-cd portfolio-frame-canvas-studio
+git clone https://github.com/PragmaSoftwares/Portfolio-Frame-Canvas-Studio-Using-NextJs-React.git
+cd Portfolio-Frame-Canvas-Studio-Using-NextJs-React
 npm install
 npx playwright install chromium   # one-time browser download for capture/export
 npm run dev
