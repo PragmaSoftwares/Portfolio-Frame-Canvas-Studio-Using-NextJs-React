@@ -5,6 +5,7 @@ import { listBoards } from "@/lib/storage/boards";
 import { listAllSelections } from "@/lib/storage/review";
 import { ProjectWorkspace } from "@/components/project/ProjectWorkspace";
 import { AppHeader } from "@/components/nav/AppHeader";
+import { AppFooter } from "@/components/nav/AppFooter";
 import type { PageCaptureMeta } from "@/types/capture";
 
 interface ProjectPageProps {
@@ -29,6 +30,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     <>
       <AppHeader />
       <ProjectWorkspace project={project} initialCaptures={captures} initialBoards={boards} selectionCount={selections.length} />
+      <AppFooter />
     </>
   );
 }

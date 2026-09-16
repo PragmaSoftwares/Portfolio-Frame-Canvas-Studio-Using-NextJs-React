@@ -175,28 +175,6 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
             ))}
           </ul>
         )}
-
-        <footer className="flex flex-col items-center gap-2 border-t border-slate-800 pt-6 text-xs text-slate-600 sm:flex-row sm:justify-between">
-          <a
-            href="https://polyformproject.org/licenses/noncommercial/1.0.0"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-slate-400"
-          >
-            PolyForm Noncommercial License
-          </a>
-          <p>
-            Built by{" "}
-            <a
-              href="https://www.pragmasoftwares.com/?utm_source=portfolio-frame-canvas-studio&utm_medium=referral"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-slate-400"
-            >
-              Pragma Softwares
-            </a>
-          </p>
-        </footer>
       </div>
     </div>
   );

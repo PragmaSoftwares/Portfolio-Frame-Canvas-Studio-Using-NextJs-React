@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppHeader } from "@/components/nav/AppHeader";
+import { AppFooter } from "@/components/nav/AppFooter";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -111,6 +112,7 @@ export default function NewProjectPage() {
           </form>
         </div>
       </div>
+      <AppFooter />
     </>
   );
 }

@@ -4,6 +4,7 @@ import { readPageCaptureMeta } from "@/lib/storage/captures";
 import { readPageSelections } from "@/lib/storage/review";
 import { ScreenshotReviewGrid, type PageReviewData } from "@/components/review/ScreenshotReviewGrid";
 import { AppHeader } from "@/components/nav/AppHeader";
+import { AppFooter } from "@/components/nav/AppFooter";
 
 interface ReviewPageProps {
   params: Promise<{ id: string }>;
@@ -25,6 +26,7 @@ export default async function ReviewPage({ params }: ReviewPageProps) {
     <>
       <AppHeader />
       <ScreenshotReviewGrid projectId={id} projectName={project.name} pagesData={pagesData} />
+      <AppFooter />
     </>
   );
 }
