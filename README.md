@@ -8,7 +8,7 @@ Capture a site's desktop, tablet, and mobile views with a real browser, crop out
 
 ## Features
 
-- **Real browser capture** — desktop (1440×1000), tablet (768×1024), and mobile (390×844) screenshots via [Playwright](https://playwright.dev), both the visible viewport and the full scrollable page.
+- **Real browser capture** — full-page screenshots at desktop (1440×1000), laptop (1366×768), tablet (768×1024), and mobile (390×844) sizes via [Playwright](https://playwright.dev).
 - **Crop editor** — drag out exactly the section of a page you want to show; crop as many sections as you like from any page, any device. The original capture is never modified.
 - **Free-form canvas** — drag cropped screenshots onto a canvas, position and resize them with the mouse or arrow keys, layer them, and pick a device frame per item (or no frame at all).
 - **Text layer** — drag a text box onto the canvas alongside your screenshots. Format it with font family (a curated set of real, self-hosted Google Fonts), size, color, bold/italic/underline, alignment (including justify), letter spacing, line height, text case, vertical alignment, a background plate, opacity, drop shadow, and an outline.
