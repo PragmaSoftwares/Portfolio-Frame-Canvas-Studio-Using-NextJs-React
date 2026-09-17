@@ -1,8 +1,11 @@
 export type CaptureStatus = "capturing" | "ready" | "failed";
 
 export interface DeviceCaptureFiles {
-  viewport: string; // filename within captures/<device>
   fullPage: string; // filename within captures/<device>
+  // True when this slot was manually uploaded (see the upload API route)
+  // rather than produced by an automated capture — used to warn before a
+  // Recapture would silently overwrite it.
+  uploaded?: boolean;
 }
 
 /** Capture state for one approved page within one project. */
@@ -15,10 +18,10 @@ export interface PageCaptureMeta {
   createdAt: string;
   updatedAt: string;
   images?: {
-    desktop: DeviceCaptureFiles;
-    laptop: DeviceCaptureFiles;
-    tablet: DeviceCaptureFiles;
-    mobile: DeviceCaptureFiles;
+    desktop?: DeviceCaptureFiles;
+    laptop?: DeviceCaptureFiles;
+    tablet?: DeviceCaptureFiles;
+    mobile?: DeviceCaptureFiles;
   };
 }
 

@@ -44,8 +44,8 @@ export default function NewProjectPage() {
 
         <div className="relative mx-auto max-w-lg space-y-8 px-6 py-12">
           <header className="space-y-2">
-            <Link href="/" className="text-xs text-slate-500 hover:text-slate-300">
-              ← Dashboard
+            <Link href="/" className="text-xs text-slate-400 hover:text-slate-100">
+              ← Back to Dashboard
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight">New project</h1>
             <p className="text-slate-400 text-sm">

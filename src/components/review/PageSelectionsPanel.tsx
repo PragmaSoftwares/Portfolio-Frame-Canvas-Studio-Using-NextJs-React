@@ -114,9 +114,13 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
       <section className="space-y-2 rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
         <div>
           <h2 className="text-sm font-semibold">{page.label}</h2>
-          <p className="text-xs text-slate-500">{page.url}</p>
+          <p className="text-xs text-slate-500">
+            <a href={page.url} target="_blank" rel="noreferrer" className="hover:text-indigo-300">
+              {page.url}
+            </a>
+          </p>
         </div>
-        <p className="rounded-xl border border-dashed border-slate-800 px-6 py-6 text-center text-sm text-slate-500">
+        <p className="rounded-xl border border-dashed border-slate-800 px-6 py-6 text-center text-sm text-slate-400">
           {capture?.status === "failed" ? "This page failed to capture. Retry it from the project page first." : "Not captured yet. Capture this page first."}
         </p>
       </section>
@@ -217,7 +221,11 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
     <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
       <div>
         <h2 className="text-sm font-semibold">{page.label}</h2>
-        <p className="text-xs text-slate-500">{page.url}</p>
+        <p className="text-xs text-slate-500">
+          <a href={page.url} target="_blank" rel="noreferrer" className="hover:text-indigo-300">
+            {page.url}
+          </a>
+        </p>
       </div>
 
       <div className="flex flex-wrap items-start gap-6">
@@ -269,9 +277,9 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
             <img ref={imgRef} src={fullPageSrc} alt="" onLoad={handleImageLoad} style={{ width: "100%", height: "auto", display: "block" }} />
           </ReactCrop>
         ) : (
-          <p className="px-6 py-16 text-center text-sm text-slate-500">
-            This page hasn&apos;t been captured for <span className="capitalize">{device}</span> yet — recapture it
-            from the project page to add this device.
+          <p className="px-6 py-16 text-center text-sm text-slate-400">
+            This page hasn&apos;t been captured for <span className="capitalize">{device}</span> yet — recapture it,
+            or upload a screenshot for this device, from the project page.
           </p>
         )}
       </div>

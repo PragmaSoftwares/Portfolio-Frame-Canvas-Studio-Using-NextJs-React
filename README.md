@@ -32,6 +32,16 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Making changes locally
+
+- Running `npm run dev`? Just save the file — changes apply automatically.
+- Running the production build (`npm run build && npm run start`)? Editing files alone won't update the running server — `next start` serves whatever was already built. Re-run `npm run build`, then restart `npm run start`, to see a change take effect.
+- `npm run build` already type-checks the whole project and runs ESLint as part of the build, and fails if either finds a problem — a successful build already confirms both passed. `npm run lint` is available separately for a faster check while you're still editing.
+
+## Versioning
+
+This project follows [Semantic Versioning](https://semver.org/) — see the current version in [`package.json`](package.json) and what changed at each version in [`CHANGELOG.md`](CHANGELOG.md). If you're checking whether you're on the latest setup, compare your version against the changelog.
+
 ## How it works
 
 ```text
@@ -71,7 +81,7 @@ Playwright always runs in the Node.js runtime, never the Edge runtime.
 
 This is a personal/small-team tool, not a general-purpose design app:
 
-- Cookie/promo popups on captured pages are dismissed on a best-effort basis automatically, not guaranteed — for anything that slips through (or a Cloudflare/CAPTCHA check), use a project's "Assisted Setup" to dismiss it yourself once in a real browser window; future captures for that project reuse the result.
+- Cookie/promo popups on captured pages are dismissed on a best-effort basis automatically, not guaranteed — for anything that slips through (or a Cloudflare/CAPTCHA check), use a project's "Assisted Setup" to dismiss it yourself once in a real browser window; future captures for that project reuse the result. If a page still won't capture cleanly even after that, a project can opt in to manually uploading a full-page screenshot (e.g. from a browser extension) per device instead, as a last resort.
 
 ## License
 

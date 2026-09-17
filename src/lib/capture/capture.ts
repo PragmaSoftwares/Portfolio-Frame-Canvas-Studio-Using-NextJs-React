@@ -215,7 +215,6 @@ async function dismissOverlays(page: Page): Promise<void> {
 }
 
 export interface DeviceCaptureBuffers {
-  viewport: Buffer;
   fullPage: Buffer;
 }
 
@@ -226,14 +225,34 @@ export interface CaptureAllResult {
   mobile: DeviceCaptureBuffers;
 }
 
-async function captureDevice(context: BrowserContext, url: string, viewport: Viewport): Promise<DeviceCaptureBuffers> {
+async function captureDevice(
+  context: BrowserContext,
+  url: string,
+  viewport: Viewport,
+  sessionStorageEntries?: Record<string, string>
+): Promise<DeviceCaptureBuffers> {
   const page = await context.newPage();
   try {
+    // Runs before the page's own scripts on its first navigation — this is
+    // the only way to seed sessionStorage, since (unlike cookies/localStorage)
+    // it isn't part of Playwright's storageState and can't be set after the
+    // page has already loaded and read it. See assistedSetup.ts.
+    if (sessionStorageEntries && Object.keys(sessionStorageEntries).length > 0) {
+      await page.addInitScript((entries) => {
+        for (const [key, value] of Object.entries(entries)) {
+          try {
+            window.sessionStorage.setItem(key, value);
+          } catch {
+            // Storage disabled/full — non-fatal, just skip that entry.
+          }
+        }
+      }, sessionStorageEntries);
+    }
+
     await page.setViewportSize(viewport);
     await preparePage(page, url);
-    const viewportShot = await page.screenshot({ type: "png" });
     const fullPageShot = await page.screenshot({ type: "png", fullPage: true });
-    return { viewport: viewportShot, fullPage: fullPageShot };
+    return { fullPage: fullPageShot };
   } finally {
     await page.close();
   }
@@ -251,8 +270,18 @@ async function captureDevice(context: BrowserContext, url: string, viewport: Vie
  * that already "sees" a returning, already-consented visitor typically won't
  * show its cookie/promo banner at all, sidestepping the dismiss-it problem
  * entirely rather than trying to detect and click it.
+ *
+ * `sessionStorageEntries`, when given, is replayed into every device's page
+ * (each device gets its own fresh page/tab, so this is done per-page, not
+ * once for the whole context) — covers sites whose "already dismissed"
+ * flag lives in sessionStorage rather than a cookie or localStorage, which
+ * storageStatePath alone can't reach. See assistedSetup.ts.
  */
-export async function captureAllDevices(url: string, storageStatePath?: string): Promise<CaptureAllResult> {
+export async function captureAllDevices(
+  url: string,
+  storageStatePath?: string,
+  sessionStorageEntries?: Record<string, string>
+): Promise<CaptureAllResult> {
   const browser = await getBrowser();
   const context = await browser.newContext({
     locale: "en-US",
@@ -262,10 +291,10 @@ export async function captureAllDevices(url: string, storageStatePath?: string):
   });
 
   try {
-    const desktop = await captureDevice(context, url, DESKTOP_VIEWPORT);
-    const laptop = await captureDevice(context, url, LAPTOP_VIEWPORT);
-    const tablet = await captureDevice(context, url, TABLET_VIEWPORT);
-    const mobile = await captureDevice(context, url, MOBILE_VIEWPORT);
+    const desktop = await captureDevice(context, url, DESKTOP_VIEWPORT, sessionStorageEntries);
+    const laptop = await captureDevice(context, url, LAPTOP_VIEWPORT, sessionStorageEntries);
+    const tablet = await captureDevice(context, url, TABLET_VIEWPORT, sessionStorageEntries);
+    const mobile = await captureDevice(context, url, MOBILE_VIEWPORT, sessionStorageEntries);
     return { desktop, laptop, tablet, mobile };
   } finally {
     await context.close();

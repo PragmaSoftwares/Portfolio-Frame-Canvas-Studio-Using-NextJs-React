@@ -8,6 +8,7 @@ import {
   assertSafeSlug,
   projectCaptureDeviceDir,
   projectConsentStatePath,
+  projectSessionStatePath,
   type CaptureDevice,
 } from "@/lib/storage/paths";
 import { readProject, touchProject } from "@/lib/storage/projects";
@@ -25,12 +26,10 @@ async function saveDevice(
   const dir = projectCaptureDeviceDir(projectId, device);
   await fs.mkdir(dir, { recursive: true });
 
-  const viewportFilename = `${slug}.png`;
   const fullPageFilename = `${slug}-full.png`;
-  await fs.writeFile(path.join(dir, viewportFilename), buffers.viewport);
   await fs.writeFile(path.join(dir, fullPageFilename), buffers.fullPage);
 
-  return { viewport: viewportFilename, fullPage: fullPageFilename };
+  return { fullPage: fullPageFilename };
 }
 
 export async function POST(request: Request) {
@@ -92,7 +91,24 @@ export async function POST(request: Request) {
       .access(consentStatePath)
       .then(() => true)
       .catch(() => false);
-    const captured = await captureAllDevices(page.url, hasConsentState ? consentStatePath : undefined);
+
+    // sessionStorage isn't part of storageState — read the separately-saved
+    // per-origin snapshot (see assistedSetup.ts) and pull out just this
+    // page's origin, if any was captured for it.
+    let sessionStorageEntries: Record<string, string> | undefined;
+    try {
+      const raw = await fs.readFile(projectSessionStatePath(projectId), "utf-8");
+      const byOrigin = JSON.parse(raw) as Record<string, Record<string, string>>;
+      sessionStorageEntries = byOrigin[new URL(page.url).origin];
+    } catch {
+      // No saved session state (or unreadable) — fine, just skip it.
+    }
+
+    const captured = await captureAllDevices(
+      page.url,
+      hasConsentState ? consentStatePath : undefined,
+      sessionStorageEntries
+    );
 
     const [desktop, laptop, tablet, mobile] = await Promise.all([
       saveDevice(projectId, "desktop", pageSlug, captured.desktop),

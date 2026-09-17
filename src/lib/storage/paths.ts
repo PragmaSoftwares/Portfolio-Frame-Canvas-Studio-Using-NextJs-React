@@ -91,6 +91,19 @@ export function projectConsentStatePath(id: string): string {
   return path.join(projectDir(id), "consent-state.json");
 }
 
+/**
+ * Saved sessionStorage from an Assisted Setup session, per origin. Separate
+ * from consent-state.json because Playwright's context.storageState() only
+ * captures cookies and localStorage — sessionStorage needs to be read and
+ * replayed by hand. Some sites (e.g. a scroll-triggered promo popup that
+ * only stays dismissed for the current tab, not future visits) key their
+ * "already dismissed" flag off sessionStorage specifically. See
+ * lib/capture/assistedSetup.ts and lib/capture/capture.ts.
+ */
+export function projectSessionStatePath(id: string): string {
+  return path.join(projectDir(id), "session-state.json");
+}
+
 export function backgroundsIndexPath(): string {
   return path.join(BACKGROUNDS_ROOT, "index.json");
 }

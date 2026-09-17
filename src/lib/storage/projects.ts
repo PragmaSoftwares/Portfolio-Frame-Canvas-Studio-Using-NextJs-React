@@ -40,6 +40,7 @@ function migrateProject(raw: Record<string, unknown>): ProjectData {
   delete raw.servicesDelivered;
   delete raw.technologiesUsed;
   if (raw.assistedSetupAt === undefined) raw.assistedSetupAt = null;
+  if (raw.manualUploadEnabled === undefined) raw.manualUploadEnabled = false;
   return raw as unknown as ProjectData;
 }
 
@@ -86,6 +87,7 @@ export interface UpdateProjectPatch {
   mainUrl?: string;
   category?: string | null;
   assistedSetupAt?: string | null;
+  manualUploadEnabled?: boolean;
 }
 
 export async function updateProject(id: string, patch: UpdateProjectPatch): Promise<ProjectData | null> {

@@ -70,8 +70,8 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
 
       <div className="relative mx-auto max-w-lg space-y-8 px-6 py-12">
         <header className="space-y-2">
-          <Link href="/" className="text-xs text-slate-500 hover:text-slate-300">
-            ← Dashboard
+          <Link href="/" className="text-xs text-slate-400 hover:text-slate-100">
+            ← Back to Dashboard
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">Agency settings</h1>
           <p className="text-slate-400 text-sm">
@@ -153,7 +153,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
               />
             </Field>
           </div>
-          <p className="-mt-2 text-xs text-slate-500">
+          <p className="-mt-2 text-sm text-slate-400">
             Applies to the repeating diagonal watermark pattern on every board where the watermark is on — this is
             the shared style, not just a per-project starting point.
           </p>
@@ -221,7 +221,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
     <div className="space-y-1.5">
       <label className="text-sm text-slate-300">{label}</label>
       {children}
-      {hint && <p className="text-xs text-slate-500">{hint}</p>}
+      {hint && <p className="text-sm text-slate-400">{hint}</p>}
     </div>
   );
 }

@@ -104,7 +104,7 @@ async function cleanupPageFiles(projectId: string, slug: string): Promise<void> 
   await Promise.all(
     devices.flatMap((device) => {
       const dir = projectCaptureDeviceDir(projectId, device);
-      return [fs.rm(`${dir}/${slug}.png`, { force: true }), fs.rm(`${dir}/${slug}-full.png`, { force: true })];
+      return [fs.rm(`${dir}/${slug}-full.png`, { force: true })];
     })
   );
   await fs.rm(`${projectCaptureMetaDir(projectId)}/${slug}.json`, { force: true });

@@ -51,6 +51,7 @@ export async function POST(request: Request) {
     category,
     approvedPages: [{ slug: HOME_PAGE_SLUG, url: parsedUrl.toString(), label: "Home" }],
     assistedSetupAt: null,
+    manualUploadEnabled: false,
     createdAt: now,
     updatedAt: now,
   };

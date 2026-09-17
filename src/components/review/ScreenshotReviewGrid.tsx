@@ -28,8 +28,8 @@ export function ScreenshotReviewGrid({ projectId, projectName, pagesData }: Scre
 
       <div className="relative mx-auto max-w-5xl space-y-10 px-6 py-12">
         <header className="space-y-2">
-          <Link href={`/projects/${projectId}`} className="text-xs text-slate-500 hover:text-slate-300">
-            ← {projectName}
+          <Link href={`/projects/${projectId}`} className="text-xs text-slate-400 hover:text-slate-100">
+            ← Back to {projectName}
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">Screenshot review</h1>
           <p className="text-slate-400 text-sm">

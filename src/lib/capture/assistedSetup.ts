@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import { chromium, type Browser, type BrowserContext } from "playwright";
-import { projectConsentStatePath } from "../storage/paths";
+import { projectConsentStatePath, projectSessionStatePath } from "../storage/paths";
 
 /**
  * A one-time, real (visible, not headless) browser session the user
@@ -105,10 +105,39 @@ export async function startAssistedSetup(projectId: string, url: string): Promis
   return { active: true, startedAt };
 }
 
+// Playwright's context.storageState() only captures cookies and localStorage
+// — sessionStorage isn't part of it at all, so it has to be read by hand from
+// whatever page(s) are open. Some sites key an "already dismissed this popup"
+// flag off sessionStorage specifically rather than localStorage/a cookie
+// (confirmed live on foryourlittleone.com: closing its promo popup keeps it
+// closed for the rest of that browser tab, but a fresh tab/page shows it
+// again — exactly sessionStorage's lifetime, not localStorage's). Grouped by
+// origin since a session could touch more than one (redirects, subdomains).
+async function captureSessionStorage(context: BrowserContext): Promise<Record<string, Record<string, string>>> {
+  const result: Record<string, Record<string, string>> = {};
+  for (const page of context.pages()) {
+    let origin: string;
+    try {
+      origin = new URL(page.url()).origin;
+    } catch {
+      continue; // about:blank or similar — nothing meaningful to key it by.
+    }
+    try {
+      const entries = await page.evaluate(() => ({ ...window.sessionStorage }));
+      if (Object.keys(entries).length > 0) {
+        result[origin] = { ...(result[origin] ?? {}), ...entries };
+      }
+    } catch {
+      // Page navigated away/closed mid-read — skip it.
+    }
+  }
+  return result;
+}
+
 /**
- * Snapshots the session's cookies/localStorage and saves them for reuse by
- * future automated captures of this project, then closes the window.
- * Returns null if no session is currently open for this project.
+ * Snapshots the session's cookies/localStorage/sessionStorage and saves them
+ * for reuse by future automated captures of this project, then closes the
+ * window. Returns null if no session is currently open for this project.
  */
 export async function finishAssistedSetup(projectId: string): Promise<{ savedAt: string } | null> {
   const session = sessions.get(projectId);
@@ -116,6 +145,16 @@ export async function finishAssistedSetup(projectId: string): Promise<{ savedAt:
 
   const state = await session.context.storageState();
   await fs.writeFile(projectConsentStatePath(projectId), JSON.stringify(state, null, 2), "utf-8");
+
+  const sessionState = await captureSessionStorage(session.context);
+  const sessionStatePath = projectSessionStatePath(projectId);
+  if (Object.keys(sessionState).length > 0) {
+    await fs.writeFile(sessionStatePath, JSON.stringify(sessionState, null, 2), "utf-8");
+  } else {
+    // Nothing to replay this time (e.g. re-running setup on a site that
+    // doesn't use sessionStorage) — clear out a stale file from a previous run.
+    await fs.rm(sessionStatePath, { force: true }).catch(() => {});
+  }
 
   await cleanupSession(projectId);
   return { savedAt: new Date().toISOString() };

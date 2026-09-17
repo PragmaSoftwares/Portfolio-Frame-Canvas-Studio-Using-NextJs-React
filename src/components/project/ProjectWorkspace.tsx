@@ -49,6 +49,9 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
   const [assistedSetupError, setAssistedSetupError] = useState<string | null>(null);
   const [assistedSetupSaved, setAssistedSetupSaved] = useState(false);
 
+  const [manualUploadEnabled, setManualUploadEnabled] = useState(project.manualUploadEnabled);
+  const [manualUploadBusy, setManualUploadBusy] = useState(false);
+
   const additionalCount = pages.length - 1;
   const atPageLimit = additionalCount >= MAX_ADDITIONAL_PAGES;
   const busy = capturingSlug !== null || runningAll;
@@ -107,6 +110,24 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
     }
   }
 
+  async function handleToggleManualUpload(checked: boolean) {
+    const previous = manualUploadEnabled;
+    setManualUploadEnabled(checked); // optimistic — this is a low-stakes toggle
+    setManualUploadBusy(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ manualUploadEnabled: checked }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setManualUploadEnabled(previous); // revert on failure
+    } finally {
+      setManualUploadBusy(false);
+    }
+  }
+
   async function captureOne(slug: string) {
     setCapturingSlug(slug);
     try {
@@ -141,10 +162,17 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
     // on real runs) — with enough pages this is a genuinely long,
     // uninterruptible commitment to trigger by accident.
     const estimateMinutes = Math.max(1, Math.round(pages.length * 0.5));
+    const pagesWithUploads = pages.filter((p) =>
+      Object.values(captures[p.slug]?.images ?? {}).some((img) => img?.uploaded)
+    );
+    const uploadWarning =
+      pagesWithUploads.length > 0
+        ? ` This will also overwrite the screenshot(s) you manually uploaded for ${pagesWithUploads.length === pages.length ? "every page" : `${pagesWithUploads.length} page${pagesWithUploads.length === 1 ? "" : "s"}`} with new automated captures.`
+        : "";
     const ok = window.confirm(
       `Capture all ${pages.length} page${pages.length === 1 ? "" : "s"}? Each page takes roughly 30-60 seconds ` +
         `(4 device shots each) — this could take about ${estimateMinutes} minute${estimateMinutes === 1 ? "" : "s"} ` +
-        `total, and can't be cancelled partway through.`
+        `total, and can't be cancelled partway through.${uploadWarning}`
     );
     if (!ok) return;
     captureAll();
@@ -154,11 +182,14 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
     // Only "Recapture" (an already-ready page, about to be overwritten) is
     // confirmed — a first-time "Capture" or a "Retry" after failure has
     // nothing to lose, so no need to interrupt those with a prompt.
-    if (captures[slug]?.status === "ready") {
+    const capture = captures[slug];
+    if (capture?.status === "ready") {
       const label = pages.find((p) => p.slug === slug)?.label ?? "this page";
-      if (!window.confirm(`Recapture "${label}"? This replaces its existing screenshots and takes a little while.`)) {
-        return;
-      }
+      const hasUploaded = Object.values(capture.images ?? {}).some((img) => img?.uploaded);
+      const message = hasUploaded
+        ? `Recapture "${label}"? This will overwrite the screenshot(s) you manually uploaded for this page with new automated captures.`
+        : `Recapture "${label}"? This replaces its existing screenshots and takes a little while.`;
+      if (!window.confirm(message)) return;
     }
     captureOne(slug);
   }
@@ -235,6 +266,10 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
   // again without changing anything no longer leaves an empty board
   // behind — it previously created one on every single click.
   function handleProceedToCanvas() {
+    if (selectionCount === 0) {
+      setBoardError("needs-crop");
+      return;
+    }
     setBoardError(null);
     setOpeningCanvas(true);
     router.push(`/projects/${project.id}/boards/new`);
@@ -273,8 +308,8 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
       />
       <div className="relative mx-auto max-w-4xl space-y-8 px-6 py-12">
         <header className="space-y-2">
-          <Link href="/" className="text-xs text-slate-500 hover:text-slate-300">
-            ← Dashboard
+          <Link href="/" className="text-xs text-slate-400 hover:text-slate-100">
+            ← Back to Dashboard
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
           <p className="text-slate-400 text-sm">
@@ -298,12 +333,11 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
               {runningAll ? "Capturing all…" : "Capture all pages"}
             </button>
           </div>
-
           <div className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-slate-200">Assisted setup</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-sm text-slate-400">
                   Seeing cookie banners, promo popups, or a security check in your captures? Open this project in
                   a real browser window, click through them yourself once — future captures will skip them too.
                 </p>
@@ -344,6 +378,8 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
               <p className="mt-2 text-xs text-amber-400/80">
                 A browser window has opened on this machine — click through any banners there, then come back and
                 click &quot;Done — Save&quot;. Closing the window without clicking Done discards the session.
+                Some promo popups only appear after scrolling down — scroll through the page there before clicking
+                Done, so it has a chance to show up and get dismissed.
               </p>
             )}
             {assistedSetupSaved && !assistedSetupActive && (
@@ -352,6 +388,34 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
               </p>
             )}
             {assistedSetupError && <p className="mt-2 text-xs text-red-400">{assistedSetupError}</p>}
+            <div className="mt-3 border-t border-slate-800 pt-3">
+              <label className="flex items-start gap-2 text-sm text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={manualUploadEnabled}
+                  onChange={(e) => handleToggleManualUpload(e.target.checked)}
+                  disabled={manualUploadBusy}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500 disabled:opacity-50"
+                />
+                <span>
+                  Assisted setup and automated capture didn&apos;t work for you (security check, a popup that
+                  won&apos;t stay dismissed, etc.)? Check this to allow uploading screenshots manually instead.
+                </span>
+              </label>
+              <p className="mt-1.5 pl-6 text-sm text-slate-400">
+                A full-page capture from an extension like{" "}
+                <a
+                  href="https://chromewebstore.google.com/detail/ijidfpoenjmfdabnmchmdoopghmjnjij"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-indigo-300 underline underline-offset-2 hover:text-indigo-200"
+                >
+                  Full Page Screenshot
+                </a>{" "}
+                works well — it&apos;s used as-is, no cropping to a viewport size. A plain Print Screen /
+                &quot;capture visible area&quot; only grabs what&apos;s on screen, not the whole scrollable page.
+              </p>
+            </div>
           </div>
 
           {pageError && (
@@ -372,6 +436,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
                 onCapture={() => handleCaptureClick(page.slug)}
                 onRemove={page.slug === HOME_SLUG ? undefined : () => handleRemovePage(page.slug)}
                 onEditUrl={page.slug === HOME_SLUG ? handleEditHomeUrl : undefined}
+                manualUploadEnabled={manualUploadEnabled}
               />
             ))}
           </ul>
@@ -405,7 +470,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
               {addingPage ? "Adding…" : "Add page"}
             </button>
           </form>
-          <p className="text-xs text-slate-500">
+          <p className="text-sm text-slate-400">
             {atPageLimit
               ? `You've reached the limit of ${MAX_ADDITIONAL_PAGES} additional pages.`
               : `${MAX_ADDITIONAL_PAGES - additionalCount} of ${MAX_ADDITIONAL_PAGES} additional pages remaining.`}
@@ -450,25 +515,35 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
               {openingCanvas ? "Opening…" : "Proceed to Canvas"}
             </button>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-sm text-slate-400">
             Crop the sections you want on the review screen, then arrange them freely on a canvas — drag, resize,
             layer, and export as many boards as you need.
           </p>
           {selectionCount === 0 && (
-            <p className="text-xs text-amber-500">
-              You haven&apos;t cropped any screenshots yet — a new board will start empty. Review &amp; crop first
-              (above), or just make a note to come back to this one.
+            <p className="text-sm text-amber-500">
+              You haven&apos;t cropped any screenshots yet — review &amp; crop at least one (above) before proceeding
+              to canvas.
             </p>
           )}
 
           {boardError && (
             <div className="rounded-lg border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">
-              {boardError}
+              {boardError === "needs-crop" ? (
+                <>
+                  Crop at least one screenshot before proceeding to canvas — see{" "}
+                  <Link href={`/projects/${project.id}/review`} className="underline underline-offset-2 hover:text-red-100">
+                    Review &amp; crop screenshots
+                  </Link>{" "}
+                  above.
+                </>
+              ) : (
+                boardError
+              )}
             </div>
           )}
 
           {boards.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-800 px-6 py-8 text-center text-sm text-slate-500">
+            <p className="rounded-2xl border border-dashed border-slate-800 px-6 py-8 text-center text-sm text-slate-400">
               No boards yet — click &quot;Proceed to Canvas&quot; to create your first one.
             </p>
           ) : (
@@ -520,6 +595,9 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
   );
 }
 
+type DeviceKey = "desktop" | "laptop" | "tablet" | "mobile";
+const DEVICE_KEYS: readonly DeviceKey[] = ["desktop", "laptop", "tablet", "mobile"];
+
 function PageRow({
   projectId,
   page,
@@ -529,6 +607,7 @@ function PageRow({
   onCapture,
   onRemove,
   onEditUrl,
+  manualUploadEnabled,
 }: {
   projectId: string;
   page: ApprovedPage;
@@ -538,6 +617,7 @@ function PageRow({
   onCapture: () => void;
   onRemove?: () => void;
   onEditUrl?: (newUrl: string) => Promise<void>;
+  manualUploadEnabled: boolean;
 }) {
   const status = isCapturing ? "capturing" : capture?.status ?? "pending";
   const [editingUrl, setEditingUrl] = useState(false);
@@ -599,7 +679,9 @@ function PageRow({
           </div>
         ) : (
           <p className="truncate text-xs text-slate-500">
-            {page.url}
+            <a href={page.url} target="_blank" rel="noreferrer" className="hover:text-indigo-300">
+              {page.url}
+            </a>
             {onEditUrl && (
               <button
                 onClick={() => setEditingUrl(true)}
@@ -611,36 +693,25 @@ function PageRow({
             )}
           </p>
         )}
-        {status === "ready" && capture?.images && (
+        {status !== "capturing" && capture?.images && (
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-            {/* Older captures (before the "laptop" device existed) won't have every
-                key — filter to what's actually present instead of assuming all four,
-                so a legacy page shows its 3 devices instead of crashing on the 4th. */}
-            {(["desktop", "laptop", "tablet", "mobile"] as const)
-              .filter((device) => capture.images![device])
-              .map((device) => (
-              <span key={device} className="space-x-1">
-                <span className="text-emerald-400">✓</span>
-                <span>{device}</span>
-                <a
-                  href={`/api/media/projects/${projectId}/captures/${device}/${capture.images![device].viewport}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline underline-offset-2 hover:text-slate-300"
-                >
-                  viewport
-                </a>
-                <span>/</span>
-                <a
-                  href={`/api/media/projects/${projectId}/captures/${device}/${capture.images![device].fullPage}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline underline-offset-2 hover:text-slate-300"
-                >
-                  full-page
-                </a>
-              </span>
-            ))}
+            {DEVICE_KEYS.filter((device) => capture.images![device]).map((device) => {
+              const deviceImage = capture.images![device]!;
+              return (
+                <span key={device} className="space-x-1">
+                  <span className="text-emerald-400">✓</span>
+                  <a
+                    href={`/api/media/projects/${projectId}/captures/${device}/${deviceImage.fullPage}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-2 hover:text-slate-300"
+                  >
+                    {device}
+                  </a>
+                  {deviceImage.uploaded && <span className="text-slate-600">(uploaded)</span>}
+                </span>
+              );
+            })}
           </div>
         )}
         {status === "failed" && capture?.error && <p className="mt-1 text-xs text-red-400">{capture.error}</p>}
@@ -655,6 +726,14 @@ function PageRow({
         >
           {status === "capturing" ? "Capturing…" : status === "ready" ? "Recapture" : status === "failed" ? "Retry" : "Capture"}
         </button>
+        {manualUploadEnabled && (
+          <Link
+            href={`/projects/${projectId}/pages/${page.slug}/upload`}
+            className="text-xs font-medium text-indigo-400 hover:text-indigo-300"
+          >
+            Upload
+          </Link>
+        )}
         {onRemove && (
           <button
             onClick={onRemove}

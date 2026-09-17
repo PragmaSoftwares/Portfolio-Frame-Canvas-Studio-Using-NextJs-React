@@ -18,6 +18,12 @@ export interface ProjectData {
   // back to the best-effort automated dismissal only. See
   // lib/capture/assistedSetup.ts.
   assistedSetupAt: string | null;
+  // Off by default — manual image upload is a deliberate last resort for
+  // when Assisted Setup and automated capture both fail (e.g. a security
+  // check), not a routine alternative to them. The user opts in explicitly
+  // per project via a checkbox next to Assisted Setup before the "Upload"
+  // action appears next to Recapture. See app/projects/[id]/pages/[slug]/upload.
+  manualUploadEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

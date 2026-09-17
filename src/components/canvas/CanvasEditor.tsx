@@ -603,8 +603,8 @@ export function CanvasEditor({
       </div>
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-800 px-6 py-3">
         <div className="flex items-center gap-4">
-          <Link href={`/projects/${projectId}`} className="text-xs text-slate-500 hover:text-slate-300">
-            ← {projectName}
+          <Link href={`/projects/${projectId}`} className="text-xs text-slate-400 hover:text-slate-100">
+            ← Back to {projectName}
           </Link>
           <input
             value={name}
@@ -766,7 +766,7 @@ export function CanvasEditor({
             </select>
           )}
           {selections.length === 0 ? (
-            <p className="text-xs text-slate-500">
+            <p className="text-sm text-slate-400">
               No cropped sections yet.{" "}
               <Link href={`/projects/${projectId}/review`} className="text-indigo-400 hover:text-indigo-300">
                 Go crop some →
@@ -953,7 +953,7 @@ export function CanvasEditor({
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Selected item</h2>
           {selectedItem ? (
             <>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm text-slate-400">
                 {selectedItem.kind === "text"
                   ? "Double-click the text on the canvas to edit its content."
                   : "Use the arrow keys to nudge position (hold Shift for bigger steps) — handy if dragging feels imprecise."}
@@ -1308,7 +1308,7 @@ export function CanvasEditor({
               </button>
             </>
           ) : (
-            <p className="text-xs text-slate-500">Click an item on the canvas to edit its frame and layering.</p>
+            <p className="text-sm text-slate-400">Click an item on the canvas to edit its frame and layering.</p>
           )}
         </aside>
       </div>

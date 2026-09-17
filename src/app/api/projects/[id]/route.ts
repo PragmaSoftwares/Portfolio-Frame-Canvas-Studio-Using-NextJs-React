@@ -49,6 +49,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       typeof record.category === "string" && record.category.trim().length > 0 ? record.category.trim() : null;
   }
 
+  if ("manualUploadEnabled" in record) {
+    if (typeof record.manualUploadEnabled !== "boolean") {
+      return NextResponse.json({ error: "manualUploadEnabled must be a boolean." }, { status: 400 });
+    }
+    patch.manualUploadEnabled = record.manualUploadEnabled;
+  }
+
   const updated = await updateProject(id, patch);
   if (!updated) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
