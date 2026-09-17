@@ -88,10 +88,10 @@ async function writeBoard(board: Board): Promise<void> {
 // every project, so an uploaded background doesn't need to be re-picked (or
 // re-uploaded) each time — falls back to "dark" the very first time, before
 // anything has ever been saved.
-export async function createBoard(projectId: string, name: string): Promise<Board> {
+async function defaultBoardShape(projectId: string, name: string): Promise<Board> {
   const now = new Date().toISOString();
   const lastUsed = await getLastUsedBackground();
-  const board: Board = {
+  return {
     id: generateBoardId(),
     projectId,
     name,
@@ -104,8 +104,24 @@ export async function createBoard(projectId: string, name: string): Promise<Boar
     createdAt: now,
     updatedAt: now,
   };
+}
+
+export async function createBoard(projectId: string, name: string): Promise<Board> {
+  const board = await defaultBoardShape(projectId, name);
   await writeBoard(board);
   return board;
+}
+
+// Same shape createBoard would produce, but never written to disk — used to
+// seed the canvas editor for a brand-new board before the user has actually
+// done anything worth keeping. Nothing is persisted until the editor's own
+// first save, so clicking "Proceed to Canvas" and then leaving without
+// changing anything no longer leaves an empty board behind on refresh.
+// See ProjectWorkspace's handleProceedToCanvas and CanvasEditor's
+// isNewBoard handling — this is the /boards/new route's data source.
+export async function draftBoard(projectId: string): Promise<Board> {
+  const nextName = `Board ${(await listBoards(projectId)).length + 1}`;
+  return defaultBoardShape(projectId, nextName);
 }
 
 // Duplicates a board's full contents (background, items, canvas size) under

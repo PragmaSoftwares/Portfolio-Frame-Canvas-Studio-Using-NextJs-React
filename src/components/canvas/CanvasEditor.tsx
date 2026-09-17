@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
 import { Rnd } from "react-rnd";
 import { DeviceFrame } from "@/components/board/DeviceFrame";
@@ -31,6 +32,11 @@ interface CanvasEditorProps {
   projectId: string;
   projectName: string;
   board: Board;
+  // True when `board` is an in-memory draft (see draftBoard() in
+  // lib/storage/boards.ts) that has never actually been written to disk —
+  // the editor's first save creates it for real instead of patching an
+  // existing board, then swaps the URL to the real id.
+  isNewBoard?: boolean;
   selections: SelectionWithPage[];
   backgroundImages: BackgroundImage[];
   // Watermark is agency-wide (AgencySettings.defaultWatermarkVisible/Text),
@@ -200,6 +206,7 @@ export function CanvasEditor({
   projectId,
   projectName,
   board: initialBoard,
+  isNewBoard: initialIsNewBoard,
   selections,
   backgroundImages: initialBackgroundImages,
   watermarkVisible,
@@ -210,6 +217,13 @@ export function CanvasEditor({
   watermarkOpacity,
   watermarkFontFamily,
 }: CanvasEditorProps) {
+  const router = useRouter();
+  // The board's id and "has this ever actually been saved" both start from
+  // props but change over the editor's lifetime (the very first save of a
+  // draft board creates it for real and swaps in its real id) — state, not
+  // a derived read of the prop, for exactly that reason.
+  const [boardId, setBoardId] = useState(initialBoard.id);
+  const [isNewBoard, setIsNewBoard] = useState(Boolean(initialIsNewBoard));
   const [name, setName] = useState(initialBoard.name);
   const [background, setBackground] = useState<BoardBackground>(initialBoard.background);
   const [backgroundImageId, setBackgroundImageId] = useState<string | undefined>(initialBoard.backgroundImageId);
@@ -495,28 +509,56 @@ export function CanvasEditor({
     selection?.addRange(range);
   }, [editingTextId]);
 
-  async function handleSave(): Promise<boolean> {
+  // Returns the board's id on success (so a caller that just triggered the
+  // very first save of a draft board — which creates it and swaps in a
+  // real id — can use that id immediately, without waiting a render for
+  // the `boardId` state update to land), or null on failure.
+  async function handleSave(): Promise<string | null> {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/boards/${initialBoard.id}`, {
+      const payload = {
+        name,
+        background,
+        backgroundImageId: background === "image" ? (backgroundImageId ?? null) : null,
+        backgroundFit: background === "image" ? backgroundFit : "cover",
+        items,
+      };
+
+      let targetBoardId = boardId;
+      if (isNewBoard) {
+        // First save of a draft board: create it for real first (whatever
+        // the user's already configured — background, items — may already
+        // differ from the bare defaults draftBoard() seeded, so this is
+        // immediately followed by the same PATCH an existing board gets).
+        const createRes = await fetch(`/api/projects/${projectId}/boards`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        const createData = await createRes.json();
+        if (!createRes.ok) throw new Error(createData.error ?? "Could not create the board.");
+        targetBoardId = createData.board.id;
+      }
+
+      const res = await fetch(`/api/projects/${projectId}/boards/${targetBoardId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          background,
-          backgroundImageId: background === "image" ? (backgroundImageId ?? null) : null,
-          backgroundFit: background === "image" ? backgroundFit : "cover",
-          items,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not save the board.");
+
+      if (isNewBoard) {
+        setBoardId(targetBoardId);
+        setIsNewBoard(false);
+        router.replace(`/projects/${projectId}/boards/${targetBoardId}`);
+      }
       setDirty(false);
-      return true;
+      return targetBoardId;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save the board.");
-      return false;
+      return null;
     } finally {
       setSaving(false);
     }
@@ -525,13 +567,13 @@ export function CanvasEditor({
   async function handleExport() {
     setExportPhase("exporting");
     setError(null);
-    const saved = await handleSave();
-    if (!saved) {
+    const savedBoardId = await handleSave();
+    if (!savedBoardId) {
       setExportPhase("error");
       return;
     }
     try {
-      const res = await fetch(`/api/projects/${projectId}/boards/${initialBoard.id}/export`, { method: "POST" });
+      const res = await fetch(`/api/projects/${projectId}/boards/${savedBoardId}/export`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Export failed.");
       setExportUrl(data.url);
@@ -599,7 +641,7 @@ export function CanvasEditor({
             disabled={saving || !dirty}
             className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {saving ? "Saving…" : dirty ? "Save" : "Saved"}
+            {saving ? "Saving…" : dirty || isNewBoard ? "Save" : "Saved"}
           </button>
           <button
             onClick={handleExport}

@@ -40,7 +40,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
   const [addingPage, setAddingPage] = useState(false);
 
   const [boards, setBoards] = useState<Board[]>(initialBoards);
-  const [creatingBoard, setCreatingBoard] = useState(false);
+  const [openingCanvas, setOpeningCanvas] = useState(false);
   const [boardError, setBoardError] = useState<string | null>(null);
 
   const [assistedSetupAt, setAssistedSetupAt] = useState(project.assistedSetupAt);
@@ -228,22 +228,16 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
     }
   }
 
-  async function handleProceedToCanvas() {
+  // Nothing is created or persisted here — /boards/new opens the canvas
+  // editor against an in-memory draft board (see draftBoard() in
+  // lib/storage/boards.ts). The board only actually gets written to disk
+  // on the editor's own first save, so opening the canvas and leaving
+  // again without changing anything no longer leaves an empty board
+  // behind — it previously created one on every single click.
+  function handleProceedToCanvas() {
     setBoardError(null);
-    setCreatingBoard(true);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/boards`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `Board ${boards.length + 1}` }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not create a board.");
-      router.push(`/projects/${project.id}/boards/${data.board.id}`);
-    } catch (err) {
-      setBoardError(err instanceof Error ? err.message : "Could not create a board.");
-      setCreatingBoard(false);
-    }
+    setOpeningCanvas(true);
+    router.push(`/projects/${project.id}/boards/new`);
   }
 
   async function handleDeleteBoard(boardId: string, name: string) {
@@ -450,10 +444,10 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
             </h2>
             <button
               onClick={handleProceedToCanvas}
-              disabled={creatingBoard}
+              disabled={openingCanvas}
               className="bg-gradient-accent glow-accent rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
-              {creatingBoard ? "Creating…" : "Proceed to Canvas"}
+              {openingCanvas ? "Opening…" : "Proceed to Canvas"}
             </button>
           </div>
           <p className="text-xs text-slate-500">
