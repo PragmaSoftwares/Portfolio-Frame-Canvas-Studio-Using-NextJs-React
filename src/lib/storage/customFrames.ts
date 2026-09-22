@@ -10,7 +10,8 @@ interface CustomFramesIndex {
 async function readIndex(): Promise<CustomFramesIndex> {
   try {
     const raw = await fs.readFile(customFramesIndexPath(), "utf-8");
-    return { frames: [], ...(JSON.parse(raw) as Partial<CustomFramesIndex>) };
+    const parsed = { frames: [], ...(JSON.parse(raw) as Partial<CustomFramesIndex>) };
+    return { frames: parsed.frames };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return { frames: [] };
     throw err;

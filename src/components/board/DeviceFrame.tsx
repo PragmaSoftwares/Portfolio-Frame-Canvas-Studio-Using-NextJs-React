@@ -16,6 +16,11 @@ interface DeviceFrameProps {
   crop?: CropSettings;
   /** Letterbox/pillarbox fill color for "fit" mode's gap. Defaults to white. */
   contentBackground?: string;
+  // Overrides this variant's own tuned FRAME_ASSETS corner radius (0-1, a
+  // fraction of the screen hole's width) — undefined/omitted keeps that
+  // built-in default, matching every item placed before this was
+  // user-adjustable. See ScreenshotItem.cornerRadiusPct.
+  cornerRadiusPct?: number;
   style?: CSSProperties;
 }
 
@@ -95,6 +100,11 @@ export function frameHoleAspect(variant: DeviceFrameProps["variant"]): number {
   return width / height;
 }
 
+/** This variant's own tuned default corner radius (0-1, fraction of the screen hole's width) — the value used when an item's `cornerRadiusPct` is unset. */
+export function defaultCornerRadiusFraction(variant: DeviceFrameProps["variant"]): number {
+  return FRAME_ASSETS[variant].cornerRadiusFraction;
+}
+
 function ScreenContent({
   src,
   crop,
@@ -145,7 +155,15 @@ function ScreenContent({
  * of it pixel-for-pixel. Renders a neutral placeholder when src is null, so
  * an unfilled slot never breaks the layout.
  */
-export function DeviceFrame({ variant, src, width, crop = DEFAULT_SCREEN_CROP, contentBackground = "#ffffff", style }: DeviceFrameProps) {
+export function DeviceFrame({
+  variant,
+  src,
+  width,
+  crop = DEFAULT_SCREEN_CROP,
+  contentBackground = "#ffffff",
+  cornerRadiusPct,
+  style,
+}: DeviceFrameProps) {
   const asset = FRAME_ASSETS[variant];
   const scale = width / asset.imageWidth;
   const height = Math.round(asset.imageHeight * scale);
@@ -156,8 +174,10 @@ export function DeviceFrame({ variant, src, width, crop = DEFAULT_SCREEN_CROP, c
 
   // Inset slightly and round the corners so the content's square corners
   // never poke past the screen's real rounded curve (see FRAME_ASSETS doc).
+  // The radius fraction is user-adjustable per item (cornerRadiusPct);
+  // inset stays fixed to this variant's own tuned default either way.
   const inset = Math.max(1, Math.round(holeWidth * asset.insetFraction));
-  const cornerRadius = Math.max(1, Math.round(holeWidth * asset.cornerRadiusFraction));
+  const cornerRadius = Math.max(1, Math.round(holeWidth * (cornerRadiusPct ?? asset.cornerRadiusFraction)));
   const contentWidth = Math.max(1, holeWidth - inset * 2);
   const contentHeight = Math.max(1, holeHeight - inset * 2);
 

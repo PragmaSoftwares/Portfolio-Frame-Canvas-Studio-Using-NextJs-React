@@ -50,6 +50,23 @@ export interface ScreenshotItem extends CanvasItemBase {
   // "stretch" (always fills exactly, no offset possible). Set via the
   // sidebar's vertical-position drag handle in CanvasEditor.
   contentY?: number;
+  // Meaningless when frame === "none" (nothing to round against). A real
+  // screen almost always has rounded corners, but a custom frame's
+  // screenQuad (see types/frame.ts) is a straight-edged quadrilateral —
+  // even placed exactly on the screen's own outer extremes, a straight
+  // line between two adjacent corners cuts outside the true rounded curve
+  // near each corner, so the screenshot's square corners can poke past
+  // it. A built-in device frame (DeviceFrame.tsx's FRAME_ASSETS) has the
+  // same issue at a smaller scale and already ships a tuned default; this
+  // field overrides that default when set. Rounding the screenshot's own
+  // corners (0-1, a fraction of its shorter side) tucks them back inside
+  // the curve either way. Set per item (not on the frame itself) since
+  // how much rounding looks right can vary by frame and by what's actually
+  // in the screenshot. Undefined means "use this frame's own default" —
+  // 0 for a custom frame (no baked-in default), the built-in variant's own
+  // tuned value for a device frame (see DeviceFrame's
+  // defaultCornerRadiusFraction).
+  cornerRadiusPct?: number;
 }
 
 /** One placed, freely-styled text box on a canvas board. */

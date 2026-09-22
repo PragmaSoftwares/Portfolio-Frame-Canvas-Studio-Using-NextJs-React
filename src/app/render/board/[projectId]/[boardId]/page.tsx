@@ -126,6 +126,7 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
               crop={crop}
               width={item.width}
               contentBackground={contentBackground}
+              cornerRadiusPct={item.cornerRadiusPct ?? 0}
               style={style}
             />
           );
@@ -138,6 +139,7 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
             crop={crop}
             width={item.width}
             contentBackground={contentBackground}
+            cornerRadiusPct={item.cornerRadiusPct}
             style={style}
           />
         );

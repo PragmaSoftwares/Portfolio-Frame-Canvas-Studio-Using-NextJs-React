@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
 import { Rnd } from "react-rnd";
-import { DeviceFrame } from "@/components/board/DeviceFrame";
+import { DeviceFrame, defaultCornerRadiusFraction } from "@/components/board/DeviceFrame";
 import { CustomDeviceFrame } from "@/components/board/CustomDeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
 import { CornerPinEditor } from "./CornerPinEditor";
@@ -88,6 +88,16 @@ function backgroundImageSrc(filename: string): string {
 
 function customFrameSrc(filename: string): string {
   return `/api/media/frames/${filename}`;
+}
+
+// The corner-rounding slider's starting value before a user ever touches
+// it — a built-in frame already has its own tuned default (see
+// DeviceFrame's FRAME_ASSETS), a custom frame has none (0, since how
+// off-corner-pinned it is varies frame to frame), and "none" has no frame
+// to round at all.
+function defaultCornerRadiusPct(frame: FrameVariant): number {
+  if (frame === "none" || frame === "custom") return 0;
+  return defaultCornerRadiusFraction(frame);
 }
 
 const V_TRACK_HEIGHT = 120;
@@ -450,6 +460,10 @@ export function CanvasEditor({
 
   function changeContentY(id: string, contentY: number) {
     updateItem(id, { contentY: Math.min(1, Math.max(0, contentY)) });
+  }
+
+  function changeCornerRadius(id: string, cornerRadiusPct: number) {
+    updateItem(id, { cornerRadiusPct: Math.min(0.5, Math.max(0, cornerRadiusPct)) });
   }
 
   function selectImageBackground(imageId: string) {
@@ -1109,6 +1123,7 @@ export function CanvasEditor({
                               crop={crop}
                               width={item.width}
                               contentBackground={contentBackground}
+                              cornerRadiusPct={item.cornerRadiusPct ?? 0}
                               style={{ left: 0, top: 0 }}
                             />
                           );
@@ -1120,6 +1135,7 @@ export function CanvasEditor({
                             crop={crop}
                             width={item.width}
                             contentBackground={contentBackground}
+                            cornerRadiusPct={item.cornerRadiusPct}
                             style={{ left: 0, top: 0 }}
                           />
                         );
@@ -1495,6 +1511,33 @@ export function CanvasEditor({
                       value={selectedItem.contentY ?? 0.5}
                       onChange={(y) => changeContentY(selectedItem.id, y)}
                     />
+                  )}
+                  {selectedItem.frame !== "none" && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="item-corner-radius" className="text-xs text-slate-400">
+                          Corner rounding
+                        </label>
+                        <span className="text-[11px] text-slate-500">
+                          {Math.round((selectedItem.cornerRadiusPct ?? defaultCornerRadiusPct(selectedItem.frame)) * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        id="item-corner-radius"
+                        type="range"
+                        min={0}
+                        max={0.5}
+                        step={0.01}
+                        value={selectedItem.cornerRadiusPct ?? defaultCornerRadiusPct(selectedItem.frame)}
+                        onChange={(e) => changeCornerRadius(selectedItem.id, Number(e.target.value))}
+                        className="w-full accent-indigo-500"
+                      />
+                      <p className="text-[11px] text-slate-500">
+                        A real screen&apos;s rounded corners recess past this frame&apos;s screen cutout, so the
+                        screenshot&apos;s square corners can poke past the curve. Round them off to tuck them back
+                        inside.
+                      </p>
+                    </div>
                   )}
                 </>
               )}

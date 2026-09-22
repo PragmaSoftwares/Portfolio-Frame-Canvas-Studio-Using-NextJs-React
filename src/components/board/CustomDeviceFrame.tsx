@@ -12,6 +12,13 @@ interface CustomDeviceFrameProps {
   width: number;
   crop?: CropSettings;
   contentBackground?: string;
+  // A real screen almost always has rounded corners, but the frame's
+  // screenQuad (see types/frame.ts) is a straight-edged quadrilateral, so
+  // the screenshot's square corners can poke past the true curve even when
+  // the quad was placed accurately. Rounding the screenshot's own corners
+  // (0-1, a fraction of its shorter side) tucks them back inside. Set per
+  // board item, not on the frame itself — see ScreenshotItem.cornerRadiusPct.
+  cornerRadiusPct?: number;
   style?: CSSProperties;
 }
 
@@ -25,12 +32,14 @@ function ScreenContent({
   width,
   height,
   contentBackground,
+  borderRadius,
 }: {
   src: string | null;
   crop: CropSettings;
   width: number;
   height: number;
   contentBackground: string;
+  borderRadius: number;
 }) {
   if (!src) {
     return (
@@ -38,6 +47,8 @@ function ScreenContent({
         style={{
           width,
           height,
+          borderRadius,
+          overflow: "hidden",
           background: "rgba(148,163,184,0.12)",
           display: "flex",
           alignItems: "center",
@@ -49,7 +60,7 @@ function ScreenContent({
     );
   }
   return (
-    <div style={{ width, height, background: contentBackground }}>
+    <div style={{ width, height, borderRadius, overflow: "hidden", background: contentBackground }}>
       <CroppedImage src={src} crop={crop} width={width} height={height} />
     </div>
   );
@@ -73,6 +84,7 @@ export function CustomDeviceFrame({
   width,
   crop = DEFAULT_CROP,
   contentBackground = "#ffffff",
+  cornerRadiusPct = 0,
   style,
 }: CustomDeviceFrameProps) {
   const scale = width / frame.imageWidth;
@@ -91,6 +103,7 @@ export function CustomDeviceFrame({
   // too small) nor wastes it (source far larger than what's ever shown).
   const flatWidth = Math.max(1, Math.round((distance(destination.topLeft, destination.topRight) + distance(destination.bottomLeft, destination.bottomRight)) / 2));
   const flatHeight = Math.max(1, Math.round((distance(destination.topLeft, destination.bottomLeft) + distance(destination.topRight, destination.bottomRight)) / 2));
+  const borderRadius = cornerRadiusPct * Math.min(flatWidth, flatHeight);
 
   return (
     <div style={{ position: "absolute", width, height, ...style }}>
@@ -105,7 +118,7 @@ export function CustomDeviceFrame({
           transform: matrix3dForQuad(flatWidth, flatHeight, destination),
         }}
       >
-        <ScreenContent src={src} crop={crop} width={flatWidth} height={flatHeight} contentBackground={contentBackground} />
+        <ScreenContent src={src} crop={crop} width={flatWidth} height={flatHeight} contentBackground={contentBackground} borderRadius={borderRadius} />
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
