@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.4.0] - 2026-09-22
+
+### Added
+
+- Edit corners on any frame after the fact — both built-in device frames and custom uploaded ones — from the canvas editor, using the same drag-and-drop corner-pin tool available at upload time. The correction applies everywhere that frame is used, across every project; a built-in frame can be reset back to its own default corners.
+- A warning before leaving a board with unsaved changes — closing the tab, refreshing, typing a new URL, or clicking away from the editor — so accidental navigation doesn't silently lose work.
+
+### Changed
+
+- The 4 built-in device frames' screen corners are positioned more precisely against the real frame artwork.
+- Agency settings: the watermark color/opacity/line width/text size fields now stay aligned on one row, and the opacity field's explanation moved into a tooltip.
+
 ## [1.3.0] - 2026-09-22
 
 ### Added
