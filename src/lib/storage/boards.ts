@@ -209,6 +209,19 @@ export async function removePageFromBoards(projectId: string, pageSlug: string):
   }
 }
 
+/** How many boards currently use a given background image — checked before deleting it, so the confirmation can say exactly what's affected. */
+export async function countBackgroundImageUsage(imageId: string): Promise<{ boards: number }> {
+  let boards = 0;
+  const projects = await listProjects();
+  for (const project of projects) {
+    const projectBoards = await listBoards(project.id);
+    for (const board of projectBoards) {
+      if (board.backgroundImageId === imageId) boards += 1;
+    }
+  }
+  return { boards };
+}
+
 // Called when a background image is deleted from the global library, so no
 // board (in any project — the library isn't project-scoped) keeps pointing at
 // a file that no longer exists. Falls back to the dark gradient, same as a
@@ -224,6 +237,55 @@ export async function clearBackgroundImageFromAllBoards(imageId: string): Promis
         background: "dark",
         backgroundImageId: undefined,
         backgroundFit: undefined,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  }
+}
+
+/** How many items (and boards) currently use a given custom frame — checked before deleting it, so the confirmation can say exactly what's affected. */
+export async function countCustomFrameUsage(customFrameId: string): Promise<{ items: number; boards: number }> {
+  let items = 0;
+  let boards = 0;
+  const projects = await listProjects();
+  for (const project of projects) {
+    const projectBoards = await listBoards(project.id);
+    for (const board of projectBoards) {
+      const matches = board.items.filter(
+        (item) => item.kind === "screenshot" && item.frame === "custom" && item.customFrameId === customFrameId
+      ).length;
+      if (matches > 0) {
+        items += matches;
+        boards += 1;
+      }
+    }
+  }
+  return { items, boards };
+}
+
+// Called when a custom frame is deleted from the global library, so no board
+// (in any project — the library isn't project-scoped) keeps pointing at a
+// frame that no longer exists. Falls back to "none" (frameless), not to a
+// different default frame — same reasoning as removeSelectionFromBoards:
+// there's nothing sensible to silently substitute.
+export async function clearCustomFrameFromAllBoardItems(customFrameId: string): Promise<void> {
+  const projects = await listProjects();
+  for (const project of projects) {
+    const boards = await listBoards(project.id);
+    for (const board of boards) {
+      if (
+        !board.items.some(
+          (item) => item.kind === "screenshot" && item.frame === "custom" && item.customFrameId === customFrameId
+        )
+      )
+        continue;
+      await writeBoard({
+        ...board,
+        items: board.items.map((item) =>
+          item.kind === "screenshot" && item.frame === "custom" && item.customFrameId === customFrameId
+            ? { ...item, frame: "none", customFrameId: undefined }
+            : item
+        ),
         updatedAt: new Date().toISOString(),
       });
     }

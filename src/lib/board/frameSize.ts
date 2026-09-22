@@ -41,7 +41,7 @@ export function defaultFrameWidth(frame: FrameVariant): number {
   }
 }
 
-export function defaultFrameForDevice(sourceDevice: CaptureDevice): FrameVariant {
+export function defaultFrameForDevice(sourceDevice: CaptureDevice): CaptureDevice {
   return sourceDevice;
 }
 

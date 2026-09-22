@@ -1,6 +1,6 @@
 import type { CropFit } from "./review";
 
-export type FrameVariant = "desktop" | "laptop" | "tablet" | "mobile" | "none";
+export type FrameVariant = "desktop" | "laptop" | "tablet" | "mobile" | "none" | "custom";
 
 export type BoardBackground = "dark" | "light" | "image";
 
@@ -27,6 +27,12 @@ export interface ScreenshotItem extends CanvasItemBase {
   pageSlug: string;
   selectionId: string;
   frame: FrameVariant;
+  // Only meaningful when frame === "custom" — which library entry (see
+  // types/frame.ts, lib/storage/customFrames.ts) to render. A discriminated
+  // field rather than treating `frame` itself as "one of 5 literals or an
+  // arbitrary library id string", so built-in vs. custom is always an exact
+  // check (`frame === "custom"`), never string-matching/guessing.
+  customFrameId?: string;
   // How the screenshot fills its frame/box — "fit" (show everything, may
   // letterbox), "fill" (crop overflow), or "stretch" (fill exactly, may
   // distort). Defaults to "fit" for a device frame, "fill" for "none",

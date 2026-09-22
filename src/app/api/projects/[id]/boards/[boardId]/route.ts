@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { assertSafeId } from "@/lib/storage/paths";
 import { readBoard, updateBoard, deleteBoard, type BoardPatch } from "@/lib/storage/boards";
 import { readBackgroundImage } from "@/lib/storage/backgroundImages";
+import { listCustomFrames } from "@/lib/storage/customFrames";
 import type { BackgroundFit, CanvasItem, FrameVariant, TextAlign, TextTransform, VerticalAlign } from "@/types/board";
 import type { CropFit } from "@/types/review";
 
 export const runtime = "nodejs";
 
-const FRAME_VARIANTS: FrameVariant[] = ["desktop", "laptop", "tablet", "mobile", "none"];
+const FRAME_VARIANTS: FrameVariant[] = ["desktop", "laptop", "tablet", "mobile", "none", "custom"];
 const BACKGROUND_FITS: BackgroundFit[] = ["cover", "repeat", "stretch"];
 const CONTENT_FITS: CropFit[] = ["fit", "fill", "stretch"];
 const TEXT_ALIGNS: TextAlign[] = ["left", "center", "right", "justify"];
@@ -15,7 +16,7 @@ const TEXT_TRANSFORMS: TextTransform[] = ["none", "uppercase", "lowercase", "cap
 const VERTICAL_ALIGNS: VerticalAlign[] = ["top", "middle", "bottom"];
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
-function parseItems(raw: unknown): CanvasItem[] | null {
+function parseItems(raw: unknown, validCustomFrameIds: Set<string>): CanvasItem[] | null {
   if (!Array.isArray(raw)) return null;
   const items: CanvasItem[] = [];
   for (const entry of raw) {
@@ -107,6 +108,7 @@ function parseItems(raw: unknown): CanvasItem[] | null {
       typeof e.selectionId !== "string" ||
       typeof e.frame !== "string" ||
       !FRAME_VARIANTS.includes(e.frame as FrameVariant) ||
+      (e.frame === "custom" && (typeof e.customFrameId !== "string" || !validCustomFrameIds.has(e.customFrameId))) ||
       ("contentFit" in e && (typeof e.contentFit !== "string" || !CONTENT_FITS.includes(e.contentFit as CropFit))) ||
       ("contentFitColor" in e && (typeof e.contentFitColor !== "string" || !HEX_COLOR_PATTERN.test(e.contentFitColor))) ||
       ("contentY" in e && (typeof e.contentY !== "number" || e.contentY < 0 || e.contentY > 1))
@@ -124,6 +126,7 @@ function parseItems(raw: unknown): CanvasItem[] | null {
       height: Math.max(20, e.height),
       zIndex: e.zIndex,
       frame: e.frame as FrameVariant,
+      customFrameId: e.frame === "custom" ? (e.customFrameId as string) : undefined,
       contentFit: typeof e.contentFit === "string" ? (e.contentFit as CropFit) : undefined,
       contentFitColor: typeof e.contentFitColor === "string" ? e.contentFitColor : undefined,
       contentY: typeof e.contentY === "number" ? e.contentY : undefined,
@@ -216,7 +219,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if ("items" in record) {
-    const items = parseItems(record.items);
+    const validCustomFrameIds = new Set((await listCustomFrames()).map((f) => f.id));
+    const items = parseItems(record.items, validCustomFrameIds);
     if (!items) {
       return NextResponse.json({ error: "Invalid items array." }, { status: 400 });
     }

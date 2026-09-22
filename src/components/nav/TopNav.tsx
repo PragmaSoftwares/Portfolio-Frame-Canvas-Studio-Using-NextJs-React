@@ -6,6 +6,9 @@ export function TopNav() {
       <Link href="/" className="rounded-full px-3 py-1.5 transition hover:bg-slate-800 hover:text-slate-100">
         Dashboard
       </Link>
+      <Link href="/library" className="rounded-full px-3 py-1.5 transition hover:bg-slate-800 hover:text-slate-100">
+        Library
+      </Link>
       <Link href="/settings" className="rounded-full px-3 py-1.5 transition hover:bg-slate-800 hover:text-slate-100">
         Agency settings
       </Link>

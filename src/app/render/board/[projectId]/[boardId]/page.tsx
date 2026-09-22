@@ -2,8 +2,10 @@ import { readBoard } from "@/lib/storage/boards";
 import { readPageSelections } from "@/lib/storage/review";
 import { readBackgroundImage } from "@/lib/storage/backgroundImages";
 import { readSettings } from "@/lib/storage/settings";
+import { listCustomFrames } from "@/lib/storage/customFrames";
 import { BoardCanvas } from "@/components/board/BoardCanvas";
 import { DeviceFrame } from "@/components/board/DeviceFrame";
+import { CustomDeviceFrame } from "@/components/board/CustomDeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
 import { TextBox } from "@/components/board/TextBox";
 import { DEFAULT_CROP } from "@/types/review";
@@ -35,6 +37,7 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
 
   const backgroundImage = board.backgroundImageId ? await readBackgroundImage(board.backgroundImageId) : null;
   const backgroundImageUrl = backgroundImage ? `/api/media/backgrounds/${backgroundImage.filename}` : null;
+  const customFrames = await listCustomFrames();
 
   // Resolve each item's image src, grouping lookups by page to avoid re-reading the same file.
   const selectionsByPage = new Map<string, Awaited<ReturnType<typeof readPageSelections>>>();
@@ -94,6 +97,34 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
               crop={crop}
               width={item.width}
               height={item.height}
+              contentBackground={contentBackground}
+              style={style}
+            />
+          );
+        }
+        if (item.frame === "custom") {
+          const customFrame = customFrames.find((f) => f.id === item.customFrameId);
+          if (!customFrame) {
+            return (
+              <PlainFrame
+                key={item.id}
+                src={src}
+                crop={crop}
+                width={item.width}
+                height={item.height}
+                contentBackground={contentBackground}
+                style={style}
+              />
+            );
+          }
+          return (
+            <CustomDeviceFrame
+              key={item.id}
+              frame={customFrame}
+              frameSrc={`/api/media/frames/${customFrame.filename}`}
+              src={src}
+              crop={crop}
+              width={item.width}
               contentBackground={contentBackground}
               style={style}
             />

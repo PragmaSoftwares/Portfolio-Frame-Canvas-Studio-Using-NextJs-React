@@ -9,6 +9,10 @@ export const SETTINGS_PATH = path.join(DATA_ROOT, "settings.json");
 // Uploaded board background images — global and project-independent, so the
 // same uploaded background can be reused across every project's boards.
 export const BACKGROUNDS_ROOT = path.join(DATA_ROOT, "backgrounds");
+// Uploaded custom device frames — global and project-independent, same
+// reasoning as backgrounds above. See types/frame.ts and
+// lib/storage/customFrames.ts.
+export const CUSTOM_FRAMES_ROOT = path.join(DATA_ROOT, "frames");
 
 // The project's main URL is always captured as this fixed page slug.
 // Additional approved pages (Phase 3) get generated slugs — see lib/storage/pages.ts.
@@ -28,6 +32,10 @@ export function generateBoardId(): string {
 }
 
 export function generateBackgroundImageId(): string {
+  return nanoid(12);
+}
+
+export function generateCustomFrameId(): string {
   return nanoid(12);
 }
 
@@ -106,4 +114,8 @@ export function projectSessionStatePath(id: string): string {
 
 export function backgroundsIndexPath(): string {
   return path.join(BACKGROUNDS_ROOT, "index.json");
+}
+
+export function customFramesIndexPath(): string {
+  return path.join(CUSTOM_FRAMES_ROOT, "index.json");
 }

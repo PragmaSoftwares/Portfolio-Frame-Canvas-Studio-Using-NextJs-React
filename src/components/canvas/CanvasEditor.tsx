@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
 import { Rnd } from "react-rnd";
 import { DeviceFrame } from "@/components/board/DeviceFrame";
+import { CustomDeviceFrame } from "@/components/board/CustomDeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
+import { CornerPinEditor } from "./CornerPinEditor";
+import { InfoTooltip } from "@/components/ui/Tooltip";
 import { backgroundStyleFor, WatermarkOverlay } from "@/components/board/BoardCanvas";
 import { DEFAULT_CROP } from "@/types/review";
 import type { CropFit } from "@/types/review";
@@ -26,6 +29,7 @@ import type {
   FrameVariant,
 } from "@/types/board";
 import type { BackgroundImage } from "@/types/backgroundImage";
+import type { CustomFrame, FrameScreenQuad } from "@/types/frame";
 import type { SelectionWithPage } from "@/lib/storage/review";
 
 interface CanvasEditorProps {
@@ -39,6 +43,7 @@ interface CanvasEditorProps {
   isNewBoard?: boolean;
   selections: SelectionWithPage[];
   backgroundImages: BackgroundImage[];
+  customFrames: CustomFrame[];
   // Watermark is agency-wide (AgencySettings.defaultWatermarkVisible/Text),
   // not per-project — applies identically to every project's boards.
   watermarkVisible: boolean;
@@ -79,6 +84,10 @@ function mediaSrc(projectId: string, filename: string): string {
 
 function backgroundImageSrc(filename: string): string {
   return `/api/media/backgrounds/${filename}`;
+}
+
+function customFrameSrc(filename: string): string {
+  return `/api/media/frames/${filename}`;
 }
 
 const V_TRACK_HEIGHT = 120;
@@ -209,6 +218,7 @@ export function CanvasEditor({
   isNewBoard: initialIsNewBoard,
   selections,
   backgroundImages: initialBackgroundImages,
+  customFrames: initialCustomFrames,
   watermarkVisible,
   watermarkText,
   watermarkColor,
@@ -230,6 +240,17 @@ export function CanvasEditor({
   const [backgroundFit, setBackgroundFit] = useState<BackgroundFit>(initialBoard.backgroundFit ?? "cover");
   const [backgroundImages, setBackgroundImages] = useState<BackgroundImage[]>(initialBackgroundImages);
   const [uploadingBackground, setUploadingBackground] = useState(false);
+  const [customFrames, setCustomFrames] = useState<CustomFrame[]>(initialCustomFrames);
+  // A file the user just picked for a new custom frame, staged for the
+  // corner-pin editor — nothing is uploaded to the server until they save.
+  const [pendingFrameUpload, setPendingFrameUpload] = useState<{
+    file: File;
+    url: string;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [uploadingFrame, setUploadingFrame] = useState(false);
+  const [frameUploadError, setFrameUploadError] = useState<string | null>(null);
   const [items, setItems] = useState<CanvasItem[]>(initialBoard.items);
   const [pageFilter, setPageFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -384,7 +405,7 @@ export function CanvasEditor({
     updatePosition(id, { zIndex: minZ - 1 });
   }
 
-  function changeFrame(id: string, frame: FrameVariant) {
+  function changeFrame(id: string, frame: FrameVariant, customFrameId?: string) {
     const item = items.find((it) => it.id === id);
     if (!item || item.kind !== "screenshot") return;
     // Re-defaults the content fit for the new frame type each time (rather
@@ -403,11 +424,20 @@ export function CanvasEditor({
         selection && selection.width > 0
           ? Math.round(item.width * (selection.height / selection.width))
           : item.height;
-      updateItem(id, { frame, height, contentFit });
+      updateItem(id, { frame, customFrameId: undefined, height, contentFit });
       return;
     }
 
-    updateItem(id, { frame, height: frameOuterHeight(frame, item.width), contentFit });
+    if (frame === "custom") {
+      const customFrame = customFrames.find((f) => f.id === customFrameId);
+      const height = customFrame
+        ? Math.round(item.width * (customFrame.imageHeight / customFrame.imageWidth))
+        : item.height;
+      updateItem(id, { frame, customFrameId, height, contentFit });
+      return;
+    }
+
+    updateItem(id, { frame, customFrameId: undefined, height: frameOuterHeight(frame, item.width), contentFit });
   }
 
   function changeContentFit(id: string, contentFit: CropFit) {
@@ -451,7 +481,22 @@ export function CanvasEditor({
   }
 
   async function handleDeleteBackgroundImage(imageId: string) {
-    if (!window.confirm("Remove this background image from the library? This can't be undone.")) return;
+    let confirmMessage = "Remove this background image from the library? This can't be undone.";
+    try {
+      const usageRes = await fetch(`/api/backgrounds/${imageId}/usage`);
+      if (usageRes.ok) {
+        const usage = await usageRes.json();
+        if (usage.boards > 0) {
+          confirmMessage =
+            `This background is used on ${usage.boards} board${usage.boards === 1 ? "" : "s"}. Removing it will ` +
+            `change those boards back to the default dark background. This can't be undone.`;
+        }
+      }
+    } catch {
+      // Usage check failed — fall back to the generic message rather than blocking deletion on it.
+    }
+    if (!window.confirm(confirmMessage)) return;
+
     setError(null);
     try {
       const res = await fetch(`/api/backgrounds/${imageId}`, { method: "DELETE" });
@@ -465,6 +510,86 @@ export function CanvasEditor({
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not remove that image.");
+    }
+  }
+
+  async function handleDeleteCustomFrame(frameId: string) {
+    let confirmMessage = "Delete this frame? This can't be undone.";
+    try {
+      const usageRes = await fetch(`/api/frames/${frameId}/usage`);
+      if (usageRes.ok) {
+        const usage = await usageRes.json();
+        if (usage.items > 0) {
+          confirmMessage =
+            `This frame is used on ${usage.items} item${usage.items === 1 ? "" : "s"} across ${usage.boards} ` +
+            `board${usage.boards === 1 ? "" : "s"}. Deleting it will change those items to frameless (no frame). ` +
+            `This can't be undone.`;
+        }
+      }
+    } catch {
+      // Usage check failed — fall back to the generic message rather than blocking deletion on it.
+    }
+    if (!window.confirm(confirmMessage)) return;
+
+    setError(null);
+    try {
+      const res = await fetch(`/api/frames/${frameId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not delete that frame.");
+      setCustomFrames((prev) => prev.filter((f) => f.id !== frameId));
+      // Any item on *this* board using the deleted frame falls back to
+      // frameless immediately too, matching what just happened on disk —
+      // otherwise it'd keep rendering (as frameless, since Phase 4's real
+      // rendering isn't built yet either way) with a dangling customFrameId
+      // until the next full page load.
+      setItems((prev) =>
+        prev.map((item) =>
+          item.kind === "screenshot" && item.frame === "custom" && item.customFrameId === frameId
+            ? { ...item, frame: "none", customFrameId: undefined }
+            : item
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete that frame.");
+    }
+  }
+
+  async function handleFrameFileSelected(file: File) {
+    setFrameUploadError(null);
+    try {
+      const { width, height } = await readImageDimensions(file);
+      setPendingFrameUpload({ file, url: URL.createObjectURL(file), width, height });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not read that image.");
+    }
+  }
+
+  function closePendingFrameUpload() {
+    if (pendingFrameUpload) URL.revokeObjectURL(pendingFrameUpload.url);
+    setPendingFrameUpload(null);
+    setFrameUploadError(null);
+  }
+
+  async function handleSaveCustomFrame(name: string, quad: FrameScreenQuad) {
+    if (!pendingFrameUpload) return;
+    setUploadingFrame(true);
+    setFrameUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", pendingFrameUpload.file);
+      formData.append("width", String(pendingFrameUpload.width));
+      formData.append("height", String(pendingFrameUpload.height));
+      formData.append("name", name);
+      formData.append("quad", JSON.stringify(quad));
+      const res = await fetch("/api/frames", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not save that frame.");
+      setCustomFrames((prev) => [data.frame as CustomFrame, ...prev]);
+      closePendingFrameUpload();
+    } catch (err) {
+      setFrameUploadError(err instanceof Error ? err.message : "Could not save that frame.");
+    } finally {
+      setUploadingFrame(false);
     }
   }
 
@@ -733,6 +858,55 @@ export function CanvasEditor({
         )}
       </div>
 
+      <div className="flex items-center gap-3 overflow-x-auto border-b border-slate-800 bg-slate-900/40 px-6 py-2.5">
+        <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Custom frames
+          <InfoTooltip
+            content={
+              <>
+                Upload a PNG or WebP with a genuinely <strong>transparent</strong> area where the screen goes — JPG
+                isn&apos;t accepted, since it has no transparency at all and would show a solid box instead of your
+                screenshot.
+              </>
+            }
+          />
+        </span>
+        <div className="flex items-center gap-2">
+          {customFrames.map((f) => (
+            <div key={f.id} className="group relative shrink-0" title={f.name}>
+              <div className="block h-11 w-16 overflow-hidden rounded border-2 border-slate-700 bg-slate-800">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={customFrameSrc(f.filename)} alt="" draggable={false} className="h-full w-full object-contain" />
+              </div>
+              <button
+                onClick={() => handleDeleteCustomFrame(f.id)}
+                title="Delete frame"
+                className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] leading-none text-white hover:bg-red-500 group-hover:flex"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+        <label
+          title="PNG or WebP only, with a transparent screen area"
+          className={`shrink-0 cursor-pointer rounded-lg border border-slate-700 px-3 py-1.5 text-xs hover:border-slate-500 ${uploadingFrame ? "opacity-50" : ""}`}
+        >
+          Upload frame
+          <input
+            type="file"
+            accept="image/png,image/webp"
+            className="hidden"
+            disabled={uploadingFrame}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void handleFrameFileSelected(file);
+            }}
+          />
+        </label>
+      </div>
+
       <div className="flex flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
         <aside className="w-full shrink-0 overflow-y-auto border-b border-slate-800 p-4 lg:w-72 lg:border-r lg:border-b-0">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Text</h2>
@@ -788,23 +962,15 @@ export function CanvasEditor({
                     title={`${s.pageLabel} — ${s.label}`}
                   >
                     <div style={{ position: "relative", height: frameOuterHeight(frame, thumbWidth) }}>
-                      {frame === "none" ? (
-                        <PlainFrame
-                          src={mediaSrc(projectId, s.filename)}
-                          crop={{ ...DEFAULT_CROP, fit: defaultContentFit(frame) }}
-                          width={thumbWidth}
-                          height={Math.round(thumbWidth * 0.75)}
-                          style={{ left: 0, top: 0 }}
-                        />
-                      ) : (
-                        <DeviceFrame
-                          variant={frame}
-                          src={mediaSrc(projectId, s.filename)}
-                          crop={{ ...DEFAULT_CROP, fit: defaultContentFit(frame) }}
-                          width={thumbWidth}
-                          style={{ left: 0, top: 0 }}
-                        />
-                      )}
+                      {/* frame is always one of the 4 device literals here — defaultFrameForDevice
+                          derives it straight from the capture device, never "none" or "custom". */}
+                      <DeviceFrame
+                        variant={frame}
+                        src={mediaSrc(projectId, s.filename)}
+                        crop={{ ...DEFAULT_CROP, fit: defaultContentFit(frame) }}
+                        width={thumbWidth}
+                        style={{ left: 0, top: 0 }}
+                      />
                     </div>
                     <p className="truncate text-[11px] text-slate-400">{s.pageLabel}</p>
                     <p className="truncate text-[11px] text-slate-500">{s.label}</p>
@@ -912,6 +1078,36 @@ export function CanvasEditor({
                               crop={crop}
                               width={item.width}
                               height={item.height}
+                              contentBackground={contentBackground}
+                              style={{ left: 0, top: 0 }}
+                            />
+                          );
+                        }
+                        if (item.frame === "custom") {
+                          const customFrame = customFrames.find((f) => f.id === item.customFrameId);
+                          // Frame was deleted from the library after this item was set to use
+                          // it (unusual — deleting resets every item on disk to frame: "none",
+                          // but the client-side board state here might be stale mid-session) —
+                          // fall back to frameless rather than rendering nothing.
+                          if (!customFrame) {
+                            return (
+                              <PlainFrame
+                                src={src}
+                                crop={crop}
+                                width={item.width}
+                                height={item.height}
+                                contentBackground={contentBackground}
+                                style={{ left: 0, top: 0 }}
+                              />
+                            );
+                          }
+                          return (
+                            <CustomDeviceFrame
+                              frame={customFrame}
+                              frameSrc={customFrameSrc(customFrame.filename)}
+                              src={src}
+                              crop={crop}
+                              width={item.width}
                               contentBackground={contentBackground}
                               style={{ left: 0, top: 0 }}
                             />
@@ -1228,8 +1424,15 @@ export function CanvasEditor({
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-400">Frame</label>
                     <select
-                      value={selectedItem.frame}
-                      onChange={(e) => changeFrame(selectedItem.id, e.target.value as FrameVariant)}
+                      value={selectedItem.frame === "custom" ? `custom:${selectedItem.customFrameId}` : selectedItem.frame}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value.startsWith("custom:")) {
+                          changeFrame(selectedItem.id, "custom", value.slice("custom:".length));
+                        } else {
+                          changeFrame(selectedItem.id, value as FrameVariant);
+                        }
+                      }}
                       className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
                     >
                       {FRAME_OPTIONS.map((f) => (
@@ -1237,6 +1440,15 @@ export function CanvasEditor({
                           {f === "none" ? "No frame" : f[0].toUpperCase() + f.slice(1)}
                         </option>
                       ))}
+                      {customFrames.length > 0 && (
+                        <optgroup label="Custom frames">
+                          {customFrames.map((f) => (
+                            <option key={f.id} value={`custom:${f.id}`}>
+                              {f.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   </div>
                   <div className="space-y-1.5">
@@ -1312,6 +1524,18 @@ export function CanvasEditor({
           )}
         </aside>
       </div>
+      {pendingFrameUpload && (
+        <CornerPinEditor
+          file={pendingFrameUpload.file}
+          imageUrl={pendingFrameUpload.url}
+          imageWidth={pendingFrameUpload.width}
+          imageHeight={pendingFrameUpload.height}
+          busy={uploadingFrame}
+          error={frameUploadError}
+          onCancel={closePendingFrameUpload}
+          onSave={handleSaveCustomFrame}
+        />
+      )}
     </div>
   );
 }
