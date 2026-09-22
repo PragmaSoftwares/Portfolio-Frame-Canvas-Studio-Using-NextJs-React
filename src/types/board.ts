@@ -1,6 +1,9 @@
 import type { CropFit } from "./review";
 
-export type FrameVariant = "desktop" | "laptop" | "tablet" | "mobile" | "none" | "custom";
+/** One of the 4 device frames shipped with the app (public/frames/*.png) — see DeviceFrame.tsx's FRAME_ASSETS. */
+export type BuiltinFrameVariant = "desktop" | "laptop" | "tablet" | "mobile";
+
+export type FrameVariant = BuiltinFrameVariant | "none" | "custom";
 
 export type BoardBackground = "dark" | "light" | "image";
 

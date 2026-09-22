@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
 import { Rnd } from "react-rnd";
-import { DeviceFrame, defaultCornerRadiusFraction } from "@/components/board/DeviceFrame";
+import { DeviceFrame, defaultCornerRadiusFraction, defaultScreenQuad, builtinFrameImageInfo } from "@/components/board/DeviceFrame";
 import { CustomDeviceFrame } from "@/components/board/CustomDeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
 import { CornerPinEditor } from "./CornerPinEditor";
@@ -27,6 +27,7 @@ import type {
   TextTransform,
   VerticalAlign,
   FrameVariant,
+  BuiltinFrameVariant,
 } from "@/types/board";
 import type { BackgroundImage } from "@/types/backgroundImage";
 import type { CustomFrame, FrameScreenQuad } from "@/types/frame";
@@ -44,6 +45,10 @@ interface CanvasEditorProps {
   selections: SelectionWithPage[];
   backgroundImages: BackgroundImage[];
   customFrames: CustomFrame[];
+  // Per-variant screen-corner corrections for the 4 built-in device frames
+  // — a variant missing here just uses its own built-in default quad. See
+  // lib/storage/builtinFrameOverrides.ts.
+  builtinFrameOverrides: Partial<Record<BuiltinFrameVariant, FrameScreenQuad>>;
   // Watermark is agency-wide (AgencySettings.defaultWatermarkVisible/Text),
   // not per-project — applies identically to every project's boards.
   watermarkVisible: boolean;
@@ -56,7 +61,14 @@ interface CanvasEditorProps {
 }
 
 const EDITOR_SCALE = 0.36;
-const FRAME_OPTIONS: FrameVariant[] = ["desktop", "laptop", "tablet", "mobile", "none"];
+const BUILTIN_FRAME_VARIANTS: BuiltinFrameVariant[] = ["desktop", "laptop", "tablet", "mobile"];
+const FRAME_OPTIONS: FrameVariant[] = [...BUILTIN_FRAME_VARIANTS, "none"];
+const BUILTIN_FRAME_LABELS: Record<BuiltinFrameVariant, string> = {
+  desktop: "Desktop",
+  laptop: "Laptop",
+  tablet: "Tablet",
+  mobile: "Mobile",
+};
 const BACKGROUND_FIT_OPTIONS: { value: BackgroundFit; label: string }[] = [
   { value: "cover", label: "Cover" },
   { value: "repeat", label: "Repeat" },
@@ -229,6 +241,7 @@ export function CanvasEditor({
   selections,
   backgroundImages: initialBackgroundImages,
   customFrames: initialCustomFrames,
+  builtinFrameOverrides: initialBuiltinFrameOverrides,
   watermarkVisible,
   watermarkText,
   watermarkColor,
@@ -261,6 +274,16 @@ export function CanvasEditor({
   } | null>(null);
   const [uploadingFrame, setUploadingFrame] = useState(false);
   const [frameUploadError, setFrameUploadError] = useState<string | null>(null);
+  const [builtinFrameOverrides, setBuiltinFrameOverrides] =
+    useState<Partial<Record<BuiltinFrameVariant, FrameScreenQuad>>>(initialBuiltinFrameOverrides);
+  // The frame (custom or built-in) currently open in the corner-pin editor
+  // for correction — separate from `pendingFrameUpload` above, which is
+  // only for a brand-new upload's first-time corner-pinning.
+  const [editingFrame, setEditingFrame] = useState<{ kind: "custom"; frame: CustomFrame } | { kind: "builtin"; variant: BuiltinFrameVariant } | null>(
+    null
+  );
+  const [editingFrameBusy, setEditingFrameBusy] = useState(false);
+  const [editingFrameError, setEditingFrameError] = useState<string | null>(null);
   const [items, setItems] = useState<CanvasItem[]>(initialBoard.items);
   const [pageFilter, setPageFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -584,7 +607,7 @@ export function CanvasEditor({
     setFrameUploadError(null);
   }
 
-  async function handleSaveCustomFrame(name: string, quad: FrameScreenQuad) {
+  async function handleSaveCustomFrame(quad: FrameScreenQuad, name: string) {
     if (!pendingFrameUpload) return;
     setUploadingFrame(true);
     setFrameUploadError(null);
@@ -604,6 +627,71 @@ export function CanvasEditor({
       setFrameUploadError(err instanceof Error ? err.message : "Could not save that frame.");
     } finally {
       setUploadingFrame(false);
+    }
+  }
+
+  async function handleResetBuiltinFrame(variant: BuiltinFrameVariant) {
+    if (!window.confirm(`Reset ${BUILTIN_FRAME_LABELS[variant]}'s screen corners back to the built-in default?`)) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/frames/builtin/${variant}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not reset that frame.");
+      setBuiltinFrameOverrides((prev) => {
+        const next = { ...prev };
+        delete next[variant];
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reset that frame.");
+    }
+  }
+
+  function openEditCustomFrame(frame: CustomFrame) {
+    setEditingFrameError(null);
+    setEditingFrame({ kind: "custom", frame });
+  }
+
+  function openEditBuiltinFrame(variant: BuiltinFrameVariant) {
+    setEditingFrameError(null);
+    setEditingFrame({ kind: "builtin", variant });
+  }
+
+  function closeEditFrame() {
+    setEditingFrame(null);
+    setEditingFrameError(null);
+  }
+
+  async function handleSaveFrameEdit(quad: FrameScreenQuad, name: string) {
+    if (!editingFrame) return;
+    setEditingFrameBusy(true);
+    setEditingFrameError(null);
+    try {
+      if (editingFrame.kind === "custom") {
+        const res = await fetch(`/api/frames/${editingFrame.frame.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quad, name }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Could not save that correction.");
+        const updated = data.frame as CustomFrame;
+        setCustomFrames((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+      } else {
+        const res = await fetch(`/api/frames/builtin/${editingFrame.variant}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quad }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Could not save that correction.");
+        setBuiltinFrameOverrides((prev) => ({ ...prev, [editingFrame.variant]: quad }));
+      }
+      closeEditFrame();
+    } catch (err) {
+      setEditingFrameError(err instanceof Error ? err.message : "Could not save that correction.");
+    } finally {
+      setEditingFrameBusy(false);
     }
   }
 
@@ -631,6 +719,32 @@ export function CanvasEditor({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedId, editingTextId]);
+
+  // Warns before closing the tab, refreshing, or typing a new URL while
+  // there are unsaved changes — `dirty` only ever becomes true from an
+  // actual edit (see markDirty()), never just from opening the editor, so
+  // an untouched or already-saved board never prompts. Browsers ignore any
+  // custom message text on this event and show their own fixed wording;
+  // only whether it fires at all is under our control here.
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [dirty]);
+
+  // Same guard for the in-app navigation links below (Next's client-side
+  // routing doesn't trigger beforeunload at all, since the page never
+  // actually unloads) — attach to any Link that leaves this editor.
+  function confirmLeaveIfDirty(e: React.MouseEvent) {
+    if (!dirty) return;
+    if (!window.confirm("You have unsaved changes on this board. Leave without saving?")) {
+      e.preventDefault();
+    }
+  }
 
   // Entering edit mode on a text item doesn't hand the browser focus (or a
   // cursor position) automatically — a contentEditable div only gets that
@@ -742,7 +856,7 @@ export function CanvasEditor({
       </div>
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-800 px-6 py-3">
         <div className="flex items-center gap-4">
-          <Link href={`/projects/${projectId}`} className="text-xs text-slate-400 hover:text-slate-100">
+          <Link href={`/projects/${projectId}`} onClick={confirmLeaveIfDirty} className="text-xs text-slate-400 hover:text-slate-100">
             ← Back to {projectName}
           </Link>
           <input
@@ -874,6 +988,52 @@ export function CanvasEditor({
 
       <div className="flex items-center gap-3 overflow-x-auto border-b border-slate-800 bg-slate-900/40 px-6 py-2.5">
         <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Inbuilt frames
+          <InfoTooltip
+            content={
+              <>
+                The 4 built-in frames. Their screen corners are hand-measured and occasionally slightly off — hover
+                one and hit ✎ to drag them onto the true edges; the correction applies everywhere this frame is
+                used, across every project.
+              </>
+            }
+          />
+        </span>
+        <div className="flex items-center gap-2">
+          {BUILTIN_FRAME_VARIANTS.map((variant) => (
+            <div key={variant} className="group relative shrink-0" title={BUILTIN_FRAME_LABELS[variant]}>
+              <div className="block h-11 w-16 overflow-hidden rounded border-2 border-slate-700 bg-slate-800">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={builtinFrameImageInfo(variant).src}
+                  alt=""
+                  draggable={false}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+              <button
+                onClick={() => openEditBuiltinFrame(variant)}
+                title="Edit screen corners"
+                className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] leading-none text-white hover:bg-indigo-500 group-hover:flex"
+              >
+                ✎
+              </button>
+              {builtinFrameOverrides[variant] && (
+                <button
+                  onClick={() => handleResetBuiltinFrame(variant)}
+                  title="Reset to the built-in default corners"
+                  className="absolute -left-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-amber-600 text-[10px] leading-none text-white hover:bg-amber-500 group-hover:flex"
+                >
+                  ↺
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 overflow-x-auto border-b border-slate-800 bg-slate-900/40 px-6 py-2.5">
+        <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
           Custom frames
           <InfoTooltip
             content={
@@ -892,6 +1052,13 @@ export function CanvasEditor({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={customFrameSrc(f.filename)} alt="" draggable={false} className="h-full w-full object-contain" />
               </div>
+              <button
+                onClick={() => openEditCustomFrame(f)}
+                title="Edit screen corners"
+                className="absolute -left-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] leading-none text-white hover:bg-indigo-500 group-hover:flex"
+              >
+                ✎
+              </button>
               <button
                 onClick={() => handleDeleteCustomFrame(f.id)}
                 title="Delete frame"
@@ -956,7 +1123,7 @@ export function CanvasEditor({
           {selections.length === 0 ? (
             <p className="text-sm text-slate-400">
               No cropped sections yet.{" "}
-              <Link href={`/projects/${projectId}/review`} className="text-indigo-400 hover:text-indigo-300">
+              <Link href={`/projects/${projectId}/review`} onClick={confirmLeaveIfDirty} className="text-indigo-400 hover:text-indigo-300">
                 Go crop some →
               </Link>
             </p>
@@ -983,6 +1150,7 @@ export function CanvasEditor({
                         src={mediaSrc(projectId, s.filename)}
                         crop={{ ...DEFAULT_CROP, fit: defaultContentFit(frame) }}
                         width={thumbWidth}
+                        screenQuadOverride={builtinFrameOverrides[frame]}
                         style={{ left: 0, top: 0 }}
                       />
                     </div>
@@ -1136,6 +1304,7 @@ export function CanvasEditor({
                             width={item.width}
                             contentBackground={contentBackground}
                             cornerRadiusPct={item.cornerRadiusPct}
+                            screenQuadOverride={builtinFrameOverrides[item.frame]}
                             style={{ left: 0, top: 0 }}
                           />
                         );
@@ -1569,7 +1738,7 @@ export function CanvasEditor({
       </div>
       {pendingFrameUpload && (
         <CornerPinEditor
-          file={pendingFrameUpload.file}
+          initialName={pendingFrameUpload.file.name.replace(/\.[^.]+$/, "")}
           imageUrl={pendingFrameUpload.url}
           imageWidth={pendingFrameUpload.width}
           imageHeight={pendingFrameUpload.height}
@@ -1577,6 +1746,39 @@ export function CanvasEditor({
           error={frameUploadError}
           onCancel={closePendingFrameUpload}
           onSave={handleSaveCustomFrame}
+        />
+      )}
+      {editingFrame && editingFrame.kind === "custom" && (
+        <CornerPinEditor
+          title="Edit screen corners"
+          description="Drag each of the 4 handles to correct this frame's screen area. Every board item already using this frame will pick up the correction."
+          saveLabel="Save correction"
+          initialName={editingFrame.frame.name}
+          initialQuad={editingFrame.frame.screenQuad}
+          imageUrl={customFrameSrc(editingFrame.frame.filename)}
+          imageWidth={editingFrame.frame.imageWidth}
+          imageHeight={editingFrame.frame.imageHeight}
+          busy={editingFrameBusy}
+          error={editingFrameError}
+          onCancel={closeEditFrame}
+          onSave={handleSaveFrameEdit}
+        />
+      )}
+      {editingFrame && editingFrame.kind === "builtin" && (
+        <CornerPinEditor
+          title={`Edit ${BUILTIN_FRAME_LABELS[editingFrame.variant]} screen corners`}
+          description="Drag each of the 4 handles to correct this frame's screen area. Every board item using this device frame — across every project — will pick up the correction."
+          saveLabel="Save correction"
+          showNameField={false}
+          initialName={BUILTIN_FRAME_LABELS[editingFrame.variant]}
+          initialQuad={builtinFrameOverrides[editingFrame.variant] ?? defaultScreenQuad(editingFrame.variant)}
+          imageUrl={builtinFrameImageInfo(editingFrame.variant).src}
+          imageWidth={builtinFrameImageInfo(editingFrame.variant).imageWidth}
+          imageHeight={builtinFrameImageInfo(editingFrame.variant).imageHeight}
+          busy={editingFrameBusy}
+          error={editingFrameError}
+          onCancel={closeEditFrame}
+          onSave={handleSaveFrameEdit}
         />
       )}
     </div>

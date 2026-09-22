@@ -76,6 +76,27 @@ export async function saveCustomFrame(
   return frame;
 }
 
+/**
+ * Corrects an existing frame's screen corners (and optionally its name)
+ * in place — same id, same file, so every board item already pointing at
+ * it picks up the correction on its next render without any migration.
+ * Used by the corner-pin editor's "Edit corners" flow, as opposed to
+ * `saveCustomFrame` which always creates a new library entry.
+ */
+export async function updateCustomFrame(id: string, screenQuad: FrameScreenQuad, name?: string): Promise<CustomFrame | null> {
+  const safeId = assertSafeId(id);
+  const index = await readIndex();
+  const frame = index.frames.find((f) => f.id === safeId);
+  if (!frame) return null;
+
+  frame.screenQuad = screenQuad;
+  frame.suggestedAspect = suggestedAspectFromQuad(screenQuad);
+  if (name && name.trim().length > 0) frame.name = name.trim();
+
+  await writeIndex(index);
+  return frame;
+}
+
 /** Removes a frame from the library and deletes its file. Does not touch boards — see `clearCustomFrameFromAllBoardItems`. */
 export async function deleteCustomFrame(id: string): Promise<void> {
   const safeId = assertSafeId(id);

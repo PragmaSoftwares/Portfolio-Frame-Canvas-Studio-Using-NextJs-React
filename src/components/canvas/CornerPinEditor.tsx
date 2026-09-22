@@ -119,39 +119,66 @@ function guessQuadFromTransparency(img: HTMLImageElement): { quad: FrameScreenQu
 }
 
 interface CornerPinEditorProps {
-  file: File;
+  // The name shown/edited in the "Frame name" field, and what a create-flow
+  // caller defaults it to (e.g. the uploaded file's own name minus
+  // extension) — computed by the caller rather than passed as a raw `File`,
+  // since an edit flow (correcting an already-saved frame) has a name to
+  // start from but no File object at all.
+  initialName: string;
   imageUrl: string;
   imageWidth: number;
   imageHeight: number;
+  // When correcting an already-saved frame's corners (as opposed to a
+  // brand-new upload), the caller already knows the current quad — skips
+  // the one-time alpha-transparency guess entirely and starts the handles
+  // there instead.
+  initialQuad?: FrameScreenQuad;
+  // Built-in frames don't have an editable name (their identity is the
+  // fixed variant, not a stored name) — hides the "Frame name" field
+  // entirely rather than showing a name nothing will do anything with.
+  showNameField?: boolean;
+  title?: string;
+  description?: string;
+  saveLabel?: string;
   busy: boolean;
   error: string | null;
   onCancel: () => void;
-  onSave: (name: string, quad: FrameScreenQuad) => void;
+  onSave: (quad: FrameScreenQuad, name: string) => void;
 }
 
 /**
- * A corner-pin tool: drag 4 independent handles over the uploaded frame
- * image to mark where a screenshot should go, for frames that aren't a
- * plain flat rectangle (e.g. a 3D-angle laptop mockup). See
- * docs/CUSTOM_FRAMES_PLAN.md — deliberately manual, no auto-detection.
+ * A corner-pin tool: drag 4 independent handles over a frame image to mark
+ * where a screenshot should go, for frames that aren't a plain flat
+ * rectangle (e.g. a 3D-angle laptop mockup). Used both for a brand-new
+ * upload (starting corners guessed from the image's own alpha transparency)
+ * and to correct an already-saved frame's corners (starting from its
+ * current quad, custom or built-in) — see docs/CUSTOM_FRAMES_PLAN.md.
+ * Deliberately manual either way, no auto-detection.
  */
 export function CornerPinEditor({
-  file,
+  initialName,
   imageUrl,
   imageWidth,
   imageHeight,
+  initialQuad,
+  showNameField = true,
+  title = "Set the screen corners",
+  description = "Drag each of the 4 handles onto the corners of this frame's screen area. A screenshot placed in this frame later will be warped to exactly fit whatever shape you draw here.",
+  saveLabel = "Save frame",
   busy,
   error,
   onCancel,
   onSave,
 }: CornerPinEditorProps) {
-  const [name, setName] = useState(file.name.replace(/\.[^.]+$/, ""));
-  const [quad, setQuad] = useState<FrameScreenQuad>(centeredDefaultQuad());
+  const [name, setName] = useState(initialName);
+  const [quad, setQuad] = useState<FrameScreenQuad>(() => initialQuad ?? centeredDefaultQuad());
   // Whether the alpha scan found a real enclosed transparent hole to seed
   // the handles from — false either before it's run, or if the uploaded
   // image turned out to have no usable transparency at all, which is worth
   // telling the user about directly rather than leaving them to wonder why
-  // the handles started in a generic centered box.
+  // the handles started in a generic centered box. Left true (no warning)
+  // when correcting an already-saved frame's corners — its transparency
+  // already rendered fine before, and no scan runs in that case.
   const [foundTransparency, setFoundTransparency] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const draggingCorner = useRef<CornerKey | null>(null);
@@ -161,6 +188,7 @@ export function CornerPinEditor({
   const displayHeight = Math.round(imageHeight * scale);
 
   useEffect(() => {
+    if (initialQuad) return; // already know the corners — nothing to guess
     const img = new Image();
     img.onload = () => {
       const result = guessQuadFromTransparency(img);
@@ -168,7 +196,7 @@ export function CornerPinEditor({
       setFoundTransparency(result.foundHole);
     };
     img.src = imageUrl;
-  }, [imageUrl]);
+  }, [imageUrl, initialQuad]);
 
   function updateCornerFromEvent(corner: CornerKey, clientX: number, clientY: number) {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -201,11 +229,8 @@ export function CornerPinEditor({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-6">
       <div className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">Set the screen corners</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Drag each of the 4 handles onto the corners of this frame&apos;s screen area. A screenshot placed in this
-            frame later will be warped to exactly fit whatever shape you draw here.
-          </p>
+          <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
+          <p className="mt-1 text-sm text-slate-400">{description}</p>
         </div>
 
         {!foundTransparency && (
@@ -245,18 +270,20 @@ export function CornerPinEditor({
           })}
         </div>
 
-        <div className="space-y-1.5">
-          <label htmlFor="custom-frame-name" className="text-xs font-medium text-slate-300">
-            Frame name
-          </label>
-          <input
-            id="custom-frame-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={busy}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500 disabled:opacity-50"
-          />
-        </div>
+        {showNameField && (
+          <div className="space-y-1.5">
+            <label htmlFor="custom-frame-name" className="text-xs font-medium text-slate-300">
+              Frame name
+            </label>
+            <input
+              id="custom-frame-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={busy}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500 disabled:opacity-50"
+            />
+          </div>
+        )}
 
         {error && <p className="text-xs text-red-400">{error}</p>}
 
@@ -269,11 +296,11 @@ export function CornerPinEditor({
             Cancel
           </button>
           <button
-            onClick={() => onSave(name.trim() || "Custom frame", quad)}
-            disabled={busy || name.trim().length === 0}
+            onClick={() => onSave(quad, name.trim() || "Custom frame")}
+            disabled={busy || (showNameField && name.trim().length === 0)}
             className="bg-gradient-accent glow-accent rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {busy ? "Saving…" : "Save frame"}
+            {busy ? "Saving…" : saveLabel}
           </button>
         </div>
       </div>

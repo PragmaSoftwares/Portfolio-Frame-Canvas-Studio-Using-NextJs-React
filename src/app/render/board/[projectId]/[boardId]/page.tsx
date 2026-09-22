@@ -3,6 +3,7 @@ import { readPageSelections } from "@/lib/storage/review";
 import { readBackgroundImage } from "@/lib/storage/backgroundImages";
 import { readSettings } from "@/lib/storage/settings";
 import { listCustomFrames } from "@/lib/storage/customFrames";
+import { listBuiltinFrameOverrides } from "@/lib/storage/builtinFrameOverrides";
 import { BoardCanvas } from "@/components/board/BoardCanvas";
 import { DeviceFrame } from "@/components/board/DeviceFrame";
 import { CustomDeviceFrame } from "@/components/board/CustomDeviceFrame";
@@ -38,6 +39,7 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
   const backgroundImage = board.backgroundImageId ? await readBackgroundImage(board.backgroundImageId) : null;
   const backgroundImageUrl = backgroundImage ? `/api/media/backgrounds/${backgroundImage.filename}` : null;
   const customFrames = await listCustomFrames();
+  const builtinFrameOverrides = await listBuiltinFrameOverrides();
 
   // Resolve each item's image src, grouping lookups by page to avoid re-reading the same file.
   const selectionsByPage = new Map<string, Awaited<ReturnType<typeof readPageSelections>>>();
@@ -140,6 +142,7 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
             width={item.width}
             contentBackground={contentBackground}
             cornerRadiusPct={item.cornerRadiusPct}
+            screenQuadOverride={builtinFrameOverrides[item.frame]}
             style={style}
           />
         );

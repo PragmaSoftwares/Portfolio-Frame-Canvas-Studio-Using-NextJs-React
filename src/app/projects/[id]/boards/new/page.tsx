@@ -4,6 +4,7 @@ import { draftBoard } from "@/lib/storage/boards";
 import { listAllSelections } from "@/lib/storage/review";
 import { listBackgroundImages } from "@/lib/storage/backgroundImages";
 import { listCustomFrames } from "@/lib/storage/customFrames";
+import { listBuiltinFrameOverrides } from "@/lib/storage/builtinFrameOverrides";
 import { readSettings } from "@/lib/storage/settings";
 import { CanvasEditor } from "@/components/canvas/CanvasEditor";
 
@@ -28,6 +29,7 @@ export default async function NewBoardPage({ params }: NewBoardPageProps) {
   const selections = await listAllSelections(id, project.approvedPages);
   const backgroundImages = await listBackgroundImages();
   const customFrames = await listCustomFrames();
+  const builtinFrameOverrides = await listBuiltinFrameOverrides();
   const settings = await readSettings();
 
   return (
@@ -39,6 +41,7 @@ export default async function NewBoardPage({ params }: NewBoardPageProps) {
       selections={selections}
       backgroundImages={backgroundImages}
       customFrames={customFrames}
+      builtinFrameOverrides={builtinFrameOverrides}
       watermarkVisible={settings.defaultWatermarkVisible}
       watermarkText={settings.defaultWatermarkText}
       watermarkColor={settings.watermarkColor}

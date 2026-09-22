@@ -13,6 +13,13 @@ export const BACKGROUNDS_ROOT = path.join(DATA_ROOT, "backgrounds");
 // reasoning as backgrounds above. See types/frame.ts and
 // lib/storage/customFrames.ts.
 export const CUSTOM_FRAMES_ROOT = path.join(DATA_ROOT, "frames");
+// Per-variant screen-corner corrections for the 4 built-in device frames
+// (public/frames/*.png) — same idea as a custom frame's screenQuad, but
+// keyed by variant name instead of an uploaded frame id, since these 4
+// assets ship with the app rather than being user-uploaded. Missing a key
+// means "use that variant's own built-in default quad" — see
+// components/board/DeviceFrame.tsx.
+export const BUILTIN_FRAME_OVERRIDES_PATH = path.join(DATA_ROOT, "builtinFrameOverrides.json");
 
 // The project's main URL is always captured as this fixed page slug.
 // Additional approved pages (Phase 3) get generated slugs — see lib/storage/pages.ts.

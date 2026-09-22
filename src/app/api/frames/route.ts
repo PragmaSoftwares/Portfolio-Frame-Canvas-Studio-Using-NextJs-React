@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listCustomFrames, saveCustomFrame } from "@/lib/storage/customFrames";
-import type { FrameScreenQuad } from "@/types/frame";
+import { parseFrameScreenQuad } from "@/lib/canvas/quadValidation";
 
 export const runtime = "nodejs";
 
@@ -10,29 +10,6 @@ const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 // box where the screenshot should go instead). PNG and WebP both support
 // real transparency.
 const ALLOWED_TYPES: Record<string, string> = { "image/png": "png", "image/webp": "webp" };
-
-function isCorner(value: unknown): value is { xPct: number; yPct: number } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { xPct?: unknown }).xPct === "number" &&
-    typeof (value as { yPct?: unknown }).yPct === "number"
-  );
-}
-
-function parseQuad(raw: unknown): FrameScreenQuad | null {
-  if (typeof raw !== "string") return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (typeof parsed !== "object" || parsed === null) return null;
-  const { topLeft, topRight, bottomRight, bottomLeft } = parsed as Record<string, unknown>;
-  if (!isCorner(topLeft) || !isCorner(topRight) || !isCorner(bottomRight) || !isCorner(bottomLeft)) return null;
-  return { topLeft, topRight, bottomRight, bottomLeft };
-}
 
 export async function GET() {
   const frames = await listCustomFrames();
@@ -71,7 +48,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid image dimensions." }, { status: 400 });
   }
 
-  const quad = parseQuad(formData.get("quad"));
+  const quad = parseFrameScreenQuad(formData.get("quad"));
   if (!quad) {
     return NextResponse.json({ error: "The frame's 4 screen corners are required." }, { status: 400 });
   }

@@ -1,6 +1,9 @@
 import type { CSSProperties } from "react";
 import { CroppedImage } from "./CroppedImage";
+import { matrix3dForQuad, type Quad, type Point } from "@/lib/canvas/homography";
 import type { CropSettings } from "@/types/review";
+import type { FrameScreenQuad } from "@/types/frame";
+import type { BuiltinFrameVariant } from "@/types/board";
 
 // Defaults to "fit" (contain), not DEFAULT_CROP's "fill" — a device frame's
 // fixed screen shape almost never matches an arbitrary crop's own aspect
@@ -10,7 +13,7 @@ import type { CropSettings } from "@/types/review";
 const DEFAULT_SCREEN_CROP: CropSettings = { x: 0.5, y: 0.5, zoom: 1, fit: "fit" };
 
 interface DeviceFrameProps {
-  variant: "desktop" | "laptop" | "tablet" | "mobile";
+  variant: BuiltinFrameVariant;
   src: string | null;
   width: number;
   crop?: CropSettings;
@@ -21,88 +24,125 @@ interface DeviceFrameProps {
   // built-in default, matching every item placed before this was
   // user-adjustable. See ScreenshotItem.cornerRadiusPct.
   cornerRadiusPct?: number;
+  // A user-corrected screen quad for this variant (see
+  // lib/storage/builtinFrameOverrides.ts and defaultScreenQuad below) —
+  // undefined/omitted falls back to this variant's own built-in default,
+  // derived from FRAME_ASSETS' `hole` rect.
+  screenQuadOverride?: FrameScreenQuad;
   style?: CSSProperties;
 }
 
 /**
  * Real device-frame PNGs (provided by the user, transparent background, a
- * genuine see-through cutout where the screen goes — verified pixel-for-pixel
- * against each file's alpha channel). `hole` is the screen cutout's bounding
- * box in the source image's own pixel coordinates, found by scanning outward
- * from the image's center along its 4 cardinal axes — accurate for the flat
- * edges, but a rounded-corner screen curves inward *before* reaching that
- * bounding box's own (square) corners. `cornerRadiusFraction`/`insetFraction`
- * (of hole width) shrink the rendered content slightly and round its corners
- * so they always land inside the true curve, never poking past it into the
- * bezel. `imageWidth`/`imageHeight` are the full source image's own pixel
- * size, used to size the frame from just a width.
+ * genuine see-through cutout where the screen goes). `screenQuad` is the
+ * screen cutout's 4 corners as fractions of the source image's own
+ * width/height — the default quad used until a user correction is saved
+ * (see lib/storage/builtinFrameOverrides.ts), hand-corrected once via the
+ * same corner-pin editor custom frames use, then baked in here as the new
+ * default. `imageWidth`/`imageHeight` are the full source image's own
+ * pixel size, used to size the frame from just a width.
  */
 const FRAME_ASSETS: Record<
-  DeviceFrameProps["variant"],
+  BuiltinFrameVariant,
   {
     src: string;
     imageWidth: number;
     imageHeight: number;
-    hole: { left: number; top: number; width: number; height: number };
+    screenQuad: FrameScreenQuad;
     cornerRadiusFraction: number;
-    insetFraction: number;
   }
 > = {
   desktop: {
     src: "/frames/desktop.png",
     imageWidth: 2560,
     imageHeight: 1940,
-    hole: { left: 206, top: 21, width: 2152, height: 1249 },
+    screenQuad: {
+      topLeft: { xPct: 0.07833340962727865, yPct: 0.009340684492509443 },
+      topRight: { xPct: 0.92109375, yPct: 0.010824742268041237 },
+      bottomRight: { xPct: 0.92109375, yPct: 0.654639175257732 },
+      bottomLeft: { xPct: 0.08046875, yPct: 0.654639175257732 },
+    },
     cornerRadiusFraction: 0.015,
-    insetFraction: 0.006,
   },
   laptop: {
     src: "/frames/laptop.png",
     imageWidth: 2940,
     imageHeight: 2043,
-    hole: { left: 297, top: 75, width: 2391, height: 1621 },
+    screenQuad: {
+      topLeft: { xPct: 0.10102040816326531, yPct: 0.03671071953010279 },
+      topRight: { xPct: 0.9142857142857143, yPct: 0.03671071953010279 },
+      bottomRight: { xPct: 0.9142857142857143, yPct: 0.8301517376407245 },
+      bottomLeft: { xPct: 0.10166664123535156, yPct: 0.8299401563084768 },
+    },
     cornerRadiusFraction: 0.015,
-    insetFraction: 0.006,
   },
   tablet: {
     src: "/frames/tablet.png",
     imageWidth: 1797,
     imageHeight: 2231,
-    hole: { left: 167, top: 105, width: 1502, height: 1974 },
+    screenQuad: {
+      topLeft: { xPct: 0.09293266555370061, yPct: 0.047064096817570594 },
+      topRight: { xPct: 0.9287701725097385, yPct: 0.047064096817570594 },
+      bottomRight: { xPct: 0.9287701725097385, yPct: 0.9318691169878978 },
+      bottomLeft: { xPct: 0.09293266555370061, yPct: 0.9318691169878978 },
+    },
     cornerRadiusFraction: 0.045,
-    insetFraction: 0.012,
   },
   mobile: {
     src: "/frames/mobile.png",
     imageWidth: 1292,
     imageHeight: 2301,
-    hole: { left: 182, top: 109, width: 968, height: 1999 },
+    screenQuad: {
+      topLeft: { xPct: 0.1372882390426377, yPct: 0.046190497988746276 },
+      topRight: { xPct: 0.8966103246656515, yPct: 0.044285728817894346 },
+      bottomRight: { xPct: 0.9033898822331833, yPct: 0.9185713995070685 },
+      bottomLeft: { xPct: 0.1305084228515625, yPct: 0.9204762776692709 },
+    },
     cornerRadiusFraction: 0.1,
-    insetFraction: 0.018,
   },
 };
 
+function distance(a: Point, b: Point): number {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
 /** Outer frame height for a given displayed width, from the source image's own aspect ratio. */
-export function frameImageHeight(variant: DeviceFrameProps["variant"], width: number): number {
+export function frameImageHeight(variant: BuiltinFrameVariant, width: number): number {
   const asset = FRAME_ASSETS[variant];
   return Math.round(width * (asset.imageHeight / asset.imageWidth));
 }
 
 /**
- * The real screen cutout's own aspect ratio (width/height), pixel-measured
- * from the source PNG — the single source of truth for "what aspect ratio
- * should a screenshot be to fill this frame without letterboxing." Used by
- * the review screen's crop-aspect presets so they match the frames a
- * screenshot will actually end up in, instead of a hand-picked guess.
+ * The real screen cutout's own aspect ratio (width/height) — the single
+ * source of truth for "what aspect ratio should a screenshot be to fill
+ * this frame without letterboxing." Used by the review screen's
+ * crop-aspect presets so they match the frames a screenshot will actually
+ * end up in, instead of a hand-picked guess. Average of the quad's two
+ * width edges / two height edges, same approach as a custom frame's own
+ * suggestedAspect (see lib/storage/customFrames.ts).
  */
-export function frameHoleAspect(variant: DeviceFrameProps["variant"]): number {
-  const { width, height } = FRAME_ASSETS[variant].hole;
+export function frameHoleAspect(variant: BuiltinFrameVariant): number {
+  const { screenQuad } = FRAME_ASSETS[variant];
+  const dist = (a: { xPct: number; yPct: number }, b: { xPct: number; yPct: number }) => Math.hypot(b.xPct - a.xPct, b.yPct - a.yPct);
+  const width = (dist(screenQuad.topLeft, screenQuad.topRight) + dist(screenQuad.bottomLeft, screenQuad.bottomRight)) / 2;
+  const height = (dist(screenQuad.topLeft, screenQuad.bottomLeft) + dist(screenQuad.topRight, screenQuad.bottomRight)) / 2;
   return width / height;
 }
 
 /** This variant's own tuned default corner radius (0-1, fraction of the screen hole's width) — the value used when an item's `cornerRadiusPct` is unset. */
-export function defaultCornerRadiusFraction(variant: DeviceFrameProps["variant"]): number {
+export function defaultCornerRadiusFraction(variant: BuiltinFrameVariant): number {
   return FRAME_ASSETS[variant].cornerRadiusFraction;
+}
+
+/** This variant's source PNG and its natural pixel size — used by the "Edit corners" flow to open the corner-pin editor on a built-in frame the same way it opens on a custom one. */
+export function builtinFrameImageInfo(variant: BuiltinFrameVariant): { src: string; imageWidth: number; imageHeight: number } {
+  const { src, imageWidth, imageHeight } = FRAME_ASSETS[variant];
+  return { src, imageWidth, imageHeight };
+}
+
+/** This variant's built-in default screen quad — the corner-pin editor's starting point when no correction has been saved yet. */
+export function defaultScreenQuad(variant: BuiltinFrameVariant): FrameScreenQuad {
+  return FRAME_ASSETS[variant].screenQuad;
 }
 
 function ScreenContent({
@@ -111,12 +151,14 @@ function ScreenContent({
   width,
   height,
   contentBackground,
+  borderRadius,
 }: {
   src: string | null;
   crop: CropSettings;
   width: number;
   height: number;
   contentBackground: string;
+  borderRadius: number;
 }) {
   if (!src) {
     return (
@@ -124,6 +166,8 @@ function ScreenContent({
         style={{
           width,
           height,
+          borderRadius,
+          overflow: "hidden",
           background: "rgba(148,163,184,0.12)",
           display: "flex",
           alignItems: "center",
@@ -141,7 +185,7 @@ function ScreenContent({
   // Harmless for "fill"/"stretch", which always cover the box completely and
   // never show it.
   return (
-    <div style={{ width, height, background: contentBackground }}>
+    <div style={{ width, height, borderRadius, overflow: "hidden", background: contentBackground }}>
       <CroppedImage src={src} crop={crop} width={width} height={height} />
     </div>
   );
@@ -150,10 +194,14 @@ function ScreenContent({
 /**
  * A real device frame around a screenshot, using the user-supplied PNG assets
  * in `public/frames/` (transparent background with a true see-through screen
- * cutout). The screenshot is placed behind the frame image, sized/positioned
- * to exactly fill that cutout, so the frame's bezel/stand/notch render on top
- * of it pixel-for-pixel. Renders a neutral placeholder when src is null, so
- * an unfilled slot never breaks the layout.
+ * cutout). Renders through the exact same screen-quad + CSS `matrix3d()` warp
+ * as CustomDeviceFrame.tsx — a plain axis-aligned quad (today's default for
+ * all 4 variants) warps to itself pixel-for-pixel, so this is visually
+ * identical to the old bespoke-positioning approach for anyone who's never
+ * corrected a frame's corners, while letting a corrected (or slightly
+ * skewed) quad render exactly as accurately as a custom frame's. Renders a
+ * neutral placeholder when src is null, so an unfilled slot never breaks
+ * the layout.
  */
 export function DeviceFrame({
   variant,
@@ -162,47 +210,40 @@ export function DeviceFrame({
   crop = DEFAULT_SCREEN_CROP,
   contentBackground = "#ffffff",
   cornerRadiusPct,
+  screenQuadOverride,
   style,
 }: DeviceFrameProps) {
   const asset = FRAME_ASSETS[variant];
   const scale = width / asset.imageWidth;
   const height = Math.round(asset.imageHeight * scale);
-  const holeLeft = Math.round(asset.hole.left * scale);
-  const holeTop = Math.round(asset.hole.top * scale);
-  const holeWidth = Math.round(asset.hole.width * scale);
-  const holeHeight = Math.round(asset.hole.height * scale);
 
-  // Inset slightly and round the corners so the content's square corners
-  // never poke past the screen's real rounded curve (see FRAME_ASSETS doc).
-  // The radius fraction is user-adjustable per item (cornerRadiusPct);
-  // inset stays fixed to this variant's own tuned default either way.
-  const inset = Math.max(1, Math.round(holeWidth * asset.insetFraction));
-  const cornerRadius = Math.max(1, Math.round(holeWidth * (cornerRadiusPct ?? asset.cornerRadiusFraction)));
-  const contentWidth = Math.max(1, holeWidth - inset * 2);
-  const contentHeight = Math.max(1, holeHeight - inset * 2);
+  const quad = screenQuadOverride ?? defaultScreenQuad(variant);
+  const destination: Quad = {
+    topLeft: { x: quad.topLeft.xPct * width, y: quad.topLeft.yPct * height },
+    topRight: { x: quad.topRight.xPct * width, y: quad.topRight.yPct * height },
+    bottomRight: { x: quad.bottomRight.xPct * width, y: quad.bottomRight.yPct * height },
+    bottomLeft: { x: quad.bottomLeft.xPct * width, y: quad.bottomLeft.yPct * height },
+  };
+
+  // Same averaging approach as CustomDeviceFrame — see its own comment.
+  const flatWidth = Math.max(1, Math.round((distance(destination.topLeft, destination.topRight) + distance(destination.bottomLeft, destination.bottomRight)) / 2));
+  const flatHeight = Math.max(1, Math.round((distance(destination.topLeft, destination.bottomLeft) + distance(destination.topRight, destination.bottomRight)) / 2));
+  const borderRadius = (cornerRadiusPct ?? asset.cornerRadiusFraction) * Math.min(flatWidth, flatHeight);
 
   return (
     <div style={{ position: "absolute", width, height, ...style }}>
-      {/* Filled at the full hole rect (not just the inset content rect) so the
-          inset margin itself is painted with contentBackground instead of
-          staying transparent — otherwise whatever sits behind the frame (the
-          board background, or another overlapping frame) shows through that
-          margin as an unwanted sliver. */}
       <div
         style={{
           position: "absolute",
-          left: holeLeft,
-          top: holeTop,
-          width: holeWidth,
-          height: holeHeight,
-          borderRadius: cornerRadius,
-          overflow: "hidden",
-          background: contentBackground,
+          left: 0,
+          top: 0,
+          width: flatWidth,
+          height: flatHeight,
+          transformOrigin: "0 0",
+          transform: matrix3dForQuad(flatWidth, flatHeight, destination),
         }}
       >
-        <div style={{ position: "absolute", left: inset, top: inset, width: contentWidth, height: contentHeight }}>
-          <ScreenContent src={src} crop={crop} width={contentWidth} height={contentHeight} contentBackground={contentBackground} />
-        </div>
+        <ScreenContent src={src} crop={crop} width={flatWidth} height={flatHeight} contentBackground={contentBackground} borderRadius={borderRadius} />
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
