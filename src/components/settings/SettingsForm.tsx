@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AgencySettings } from "@/types/settings";
 import { FONT_FAMILY_NAMES, cssFontFamily } from "@/lib/fonts";
+import { InfoTooltip } from "@/components/ui/Tooltip";
 
 interface SettingsFormProps {
   initialSettings: AgencySettings;
@@ -68,7 +69,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
         className="pointer-events-none absolute -top-48 left-1/2 h-140 w-225 -translate-x-1/2 rounded-full bg-linear-to-br from-indigo-600/25 via-violet-600/10 to-transparent blur-3xl"
       />
 
-      <div className="relative mx-auto max-w-lg space-y-8 px-6 py-12">
+      <div className="relative mx-auto max-w-2xl space-y-8 px-6 py-12">
         <header className="space-y-2">
           <Link href="/" className="text-xs text-slate-400 hover:text-slate-100">
             ← Back to Dashboard
@@ -111,7 +112,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
           </p>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Field label="Watermark color">
+            <Field label="Color">
               <input
                 type="color"
                 value={watermarkColor}
@@ -119,7 +120,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                 className="h-10 w-full rounded-lg border border-slate-700 bg-slate-900"
               />
             </Field>
-            <Field label="Opacity (%)" hint="Low = barely visible unless zoomed in, like a Canva proof.">
+            <Field label="Opacity (%)" tooltip="Low = barely visible unless zoomed in, like a Canva proof.">
               <input
                 type="number"
                 min={5}
@@ -216,10 +217,23 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  tooltip,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  tooltip?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1.5">
-      <label className="text-sm text-slate-300">{label}</label>
+      <label className="flex items-center gap-1.5 text-sm text-slate-300">
+        {label}
+        {tooltip && <InfoTooltip content={tooltip} />}
+      </label>
       {children}
       {hint && <p className="text-sm text-slate-400">{hint}</p>}
     </div>
