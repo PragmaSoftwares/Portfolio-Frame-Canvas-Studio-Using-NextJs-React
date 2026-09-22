@@ -13,7 +13,9 @@ Capture a site's desktop, tablet, and mobile views with a real browser, crop out
 - **Free-form canvas** — drag cropped screenshots onto a canvas, position and resize them with the mouse or arrow keys, layer them, and pick a device frame per item (or no frame at all).
 - **Text layer** — drag a text box onto the canvas alongside your screenshots. Format it with font family (a curated set of real, self-hosted Google Fonts), size, color, bold/italic/underline, alignment (including justify), letter spacing, line height, text case, vertical alignment, a background plate, opacity, drop shadow, and an outline.
 - **Realistic device frames** — desktop, laptop, tablet, and phone mockups, not a flat CSS rectangle.
+- **Custom device frames** — upload your own frame image (a marketplace mockup, a 3D-angled laptop shot, anything with a transparent screen area) and manually pin its 4 screen corners once; a screenshot placed in it is warped to fit that exact shape, angled perspective included. Shared across every project, same as backgrounds.
 - **Custom backgrounds** — a dark or light gradient out of the box, or upload your own background image (cover / repeat / stretch fit). Uploaded backgrounds are saved to a shared library so you can reuse the same one across multiple projects without re-uploading.
+- **Library** — a single page listing every uploaded custom frame and background image across all projects, for reviewing or deleting them without opening a board.
 - **Multiple boards per project** — build as many different compositions as you want from the same set of cropped screenshots, and export each one independently, any number of times.
 - **Multi-page, multi-project** — capture up to five additional pages per project (beyond the homepage), and manage any number of separate projects from one dashboard.
 - **100% local-first** — every project, screenshot, and export is a plain file on disk (`data/`, gitignored). No sign-in, no external services.

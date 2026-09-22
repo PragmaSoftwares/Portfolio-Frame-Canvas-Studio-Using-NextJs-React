@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.2.0] - 2026-09-22
+
+### Added
+
+- Custom device frames — upload your own frame image (a marketplace mockup, a 3D-angled shot, anything with a transparent screen area) and manually pin its 4 screen corners once; a screenshot placed in it is warped to exactly fit that shape, including real perspective/angled frames, not just flat rectangles. Available from any board's editor, shared across every project like backgrounds already are.
+- Library page — lists every uploaded custom frame and background image across all projects in one place, for reviewing or deleting without opening a board. Deleting from here behaves exactly like deleting from inside the editor: anything using a removed frame or background falls back to frameless / the default dark background instead of erroring.
+
+### Changed
+
+- Custom frame uploads accept PNG or WebP only (not JPG), since a frame needs a real transparent screen area, which JPG can't represent. Both the upload button and the frame-setup screen explain why, and warn if an uploaded image turns out not to have any transparent area to detect.
+
 ## [1.1.0] - 2026-09-17
 
 ### Added
