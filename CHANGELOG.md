@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.3.0] - 2026-09-22
+
+### Added
+
+- Corner rounding for framed items — when a screenshot is placed in a frame (a built-in device frame or a custom uploaded one), its corners can now be rounded from the canvas editor's "Selected item" panel, so they tuck back inside the frame's own rounded screen cutout instead of poking past it. Built-in frames start from their own already-tuned default; adjusting the control overrides it. Set per item (not per frame), so different screenshots placed in the same frame can each use their own amount.
+
 ## [1.2.0] - 2026-09-22
 
 ### Added
