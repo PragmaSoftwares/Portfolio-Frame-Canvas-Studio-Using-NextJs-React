@@ -167,6 +167,66 @@ async function preparePage(page: Page, url: string): Promise<void> {
   });
   await page.waitForTimeout(200);
 
+  // Some sites defer loading secondary JS (chat widgets, embeds, whole
+  // below-fold component bundles) until they see *any* sign of a real
+  // visitor, not just scroll/visibility — a different, more aggressive
+  // lazy-load pattern than the scroll-triggered one above. A passive,
+  // trusted presence signal (real input via Playwright's mouse/keyboard
+  // APIs, not a page.evaluate-dispatched event some of these checks
+  // explicitly filter out via event.isTrusted) covers that case, without
+  // ever clicking anything: a click can land on arbitrary content (a submit
+  // button, a modal trigger, a link) with no way to know in advance it's
+  // safe, so it's deliberately not attempted here. Shift-alone and a mouse
+  // move are chosen specifically because neither can submit a form,
+  // navigate, or trigger a single-key site shortcut the way a printable key
+  // or Enter/Space could.
+  try {
+    const viewport = page.viewportSize();
+    if (viewport) {
+      await page.mouse.move(viewport.width / 2, viewport.height / 2);
+    }
+    await page.keyboard.press("Shift");
+  } catch {
+    // Non-fatal.
+  }
+  await page.waitForTimeout(200);
+
+  // The scroll-through above only *triggers* lazy-loaded images (each step's
+  // pause is barely enough for an IntersectionObserver/native lazy-load to
+  // fire and start the request) — it doesn't wait for them to actually
+  // finish downloading. Without this, a full-page screenshot can still show
+  // blank/placeholder boxes for images near the bottom of a long page.
+  // Bounded to 5s total (via Promise.race, inside the browser) so one
+  // never-resolving image can't hang the capture — same "best effort, not
+  // guaranteed" philosophy as the rest of this function.
+  try {
+    await page.evaluate(() =>
+      Promise.race([
+        Promise.all(
+          Array.from(document.images).map((img) =>
+            img.complete
+              ? Promise.resolve()
+              : new Promise<void>((resolve) => {
+                  img.addEventListener("load", () => resolve(), { once: true });
+                  img.addEventListener("error", () => resolve(), { once: true });
+                })
+          )
+        ),
+        new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
+      ])
+    );
+  } catch {
+    // Non-fatal.
+  }
+
+  // A second networkidle wait — the scroll-through just kicked off a fresh
+  // batch of lazy-load requests the first (pre-scroll) wait never saw.
+  try {
+    await page.waitForLoadState("networkidle", { timeout: 5_000 });
+  } catch {
+    // Non-fatal: some sites never go idle (polling, websockets).
+  }
+
   // Run again — a popup born during the scroll-through (the common case for
   // "don't show this again"-style promo banners) wouldn't have existed for
   // the first pass above.
@@ -287,6 +347,12 @@ export async function captureAllDevices(
     locale: "en-US",
     timezoneId: "America/New_York",
     colorScheme: "light",
+    // Boards render at a fixed 2000x1500 canvas (see BOARD_WIDTH/BOARD_HEIGHT
+    // in BoardCanvas.tsx), well above any capture viewport's own width — a
+    // 1x (standard-density) screenshot gets visibly soft once scaled up into
+    // a frame there. Capturing at 2x avoids ever upscaling past native
+    // resolution for the sizes this app actually renders at.
+    deviceScaleFactor: 2,
     ...(storageStatePath ? { storageState: storageStatePath } : {}),
   });
 
