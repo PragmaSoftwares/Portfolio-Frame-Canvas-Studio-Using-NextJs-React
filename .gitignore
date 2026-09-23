@@ -50,10 +50,11 @@ next-env.d.ts
 # live in /public/frames/). None of this is meant for a public repo.
 /docs/
 
-# instructions for AI coding assistants (Claude Code / Codex-style agents) —
-# local dev tooling, not part of the shipped project
+# AGENTS.md is regenerated automatically by `next dev`/`next build` itself
+# (Next.js-version-specific coding notes) — local dev tooling, not part of
+# the shipped project. CLAUDE.md is tracked on purpose: it's this project's
+# own developer guide for anyone (human or AI) extending the codebase.
 AGENTS.md
-CLAUDE.md
 
 # Playwright MCP tool output (screenshots taken while testing with an AI
 # coding assistant) — local scratch, not project source
