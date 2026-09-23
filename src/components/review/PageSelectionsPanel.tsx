@@ -95,6 +95,7 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
   const [label, setLabel] = useState("");
   const [selections, setSelections] = useState(initialSelections);
   const [saving, setSaving] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -202,6 +203,27 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
     }
   }
 
+  async function handleDeleteAll() {
+    if (selections.length === 0) return;
+    const count = selections.length;
+    if (!window.confirm(`Remove all ${count} saved section${count === 1 ? "" : "s"} for "${page.label}"? This can't be undone, and removes them from any board they're currently placed on.`)) {
+      return;
+    }
+    setDeletingAll(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/pages/${page.slug}/selections`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not remove these selections.");
+      setSelections([]);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove these selections.");
+    } finally {
+      setDeletingAll(false);
+    }
+  }
+
   async function handleDelete(selectionId: string) {
     if (!window.confirm("Remove this saved section?")) return;
     try {
@@ -303,23 +325,43 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
       {error && <p className="text-xs text-red-400">{error}</p>}
 
       {selections.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
-          {selections.map((s) => (
-            <div key={s.id} className="space-y-1.5 rounded-lg border border-slate-800 bg-slate-950/60 p-2 transition hover:border-slate-700">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/api/media/projects/${projectId}/captures/selections/${s.filename}`}
-                alt={s.label}
-                className="aspect-square w-full rounded object-cover"
-              />
-              <p className="truncate text-xs text-slate-300">{s.label}</p>
-              <p className="text-[10px] text-slate-500 capitalize">{s.sourceDevice}</p>
-              <button onClick={() => handleDelete(s.id)} className="text-[10px] text-red-400 hover:text-red-300">
-                Remove
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-500">
+              {selections.length} saved section{selections.length === 1 ? "" : "s"}
+            </p>
+            {selections.length > 1 && (
+              <button
+                onClick={handleDeleteAll}
+                disabled={deletingAll}
+                className="text-xs font-medium text-red-400 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletingAll ? "Removing all…" : "Remove all"}
               </button>
-            </div>
-          ))}
-        </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
+            {selections.map((s) => (
+              <div key={s.id} className="space-y-1.5 rounded-lg border border-slate-800 bg-slate-950/60 p-2 transition hover:border-slate-700">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/media/projects/${projectId}/captures/selections/${s.filename}`}
+                  alt={s.label}
+                  className="aspect-square w-full rounded object-cover"
+                />
+                <p className="truncate text-xs text-slate-300">{s.label}</p>
+                <p className="text-[10px] text-slate-500 capitalize">{s.sourceDevice}</p>
+                <button
+                  onClick={() => handleDelete(s.id)}
+                  disabled={deletingAll}
+                  className="text-[10px] text-red-400 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </section>
   );

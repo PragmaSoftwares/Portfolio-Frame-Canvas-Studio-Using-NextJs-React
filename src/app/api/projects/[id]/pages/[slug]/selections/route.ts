@@ -3,7 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import { assertSafeId, assertSafeSlug, projectCaptureSelectionsDir, type CaptureDevice } from "@/lib/storage/paths";
-import { readPageSelections, addSelection } from "@/lib/storage/review";
+import { readPageSelections, addSelection, deletePageSelections } from "@/lib/storage/review";
+import { removeSelectionFromBoards } from "@/lib/storage/boards";
 import { findProjectPage, isLookupError } from "@/lib/review/lookup";
 
 export const runtime = "nodejs";
@@ -117,4 +118,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   });
 
   return NextResponse.json({ selection }, { status: 201 });
+}
+
+/** Removes every saved crop for this page at once — the review screen's "Remove all" action. */
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string; slug: string }> }) {
+  const { id: rawId, slug: rawSlug } = await params;
+  let projectId: string;
+  let pageSlug: string;
+  try {
+    projectId = assertSafeId(rawId);
+    pageSlug = assertSafeSlug(rawSlug);
+  } catch {
+    return NextResponse.json({ error: "That project or page id looks invalid." }, { status: 400 });
+  }
+
+  const result = await findProjectPage(projectId, pageSlug);
+  if (isLookupError(result)) return NextResponse.json({ error: result.error }, { status: result.status });
+
+  const selections = await readPageSelections(projectId, pageSlug);
+  await deletePageSelections(projectId, pageSlug);
+  // Sequential, not Promise.all — each call re-reads and rewrites every board
+  // file for this project, so running them concurrently could have one
+  // call's write clobber another's for a board that used more than one of
+  // these selections.
+  for (const selection of selections) {
+    await removeSelectionFromBoards(projectId, selection.id);
+  }
+
+  return NextResponse.json({ ok: true, removed: selections.length });
 }
