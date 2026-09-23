@@ -9,8 +9,6 @@ import type { Board } from "@/types/board";
 import { accentFor } from "@/lib/ui/cardAccent";
 
 const HOME_SLUG = "home";
-// Mirrors MAX_ADDITIONAL_PAGES in lib/storage/pages.ts (that module is server-only, imports fs).
-const MAX_ADDITIONAL_PAGES = 5;
 
 // Deliberately not toLocaleString() — its output depends on the runtime's
 // ambient locale/timezone, which differs between the Node server (SSR pass)
@@ -52,8 +50,6 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
   const [manualUploadEnabled, setManualUploadEnabled] = useState(project.manualUploadEnabled);
   const [manualUploadBusy, setManualUploadBusy] = useState(false);
 
-  const additionalCount = pages.length - 1;
-  const atPageLimit = additionalCount >= MAX_ADDITIONAL_PAGES;
   const busy = capturingSlug !== null || runningAll;
 
   // Recovers the "a window is open, waiting for you" UI state after a page
@@ -448,7 +444,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
                 value={newPageUrl}
                 onChange={(e) => setNewPageUrl(e.target.value)}
                 placeholder="https://example.com/pricing"
-                disabled={addingPage || atPageLimit}
+                disabled={addingPage}
                 className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500 disabled:opacity-50"
               />
             </div>
@@ -458,23 +454,18 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
                 value={newPageLabel}
                 onChange={(e) => setNewPageLabel(e.target.value)}
                 placeholder="Pricing"
-                disabled={addingPage || atPageLimit}
+                disabled={addingPage}
                 className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-indigo-500 disabled:opacity-50"
               />
             </div>
             <button
               type="submit"
-              disabled={addingPage || atPageLimit || newPageUrl.trim().length === 0}
+              disabled={addingPage || newPageUrl.trim().length === 0}
               className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-medium hover:border-indigo-500 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {addingPage ? "Adding…" : "Add page"}
             </button>
           </form>
-          <p className="text-sm text-slate-400">
-            {atPageLimit
-              ? `You've reached the limit of ${MAX_ADDITIONAL_PAGES} additional pages.`
-              : `${MAX_ADDITIONAL_PAGES - additionalCount} of ${MAX_ADDITIONAL_PAGES} additional pages remaining.`}
-          </p>
         </section>
 
         <section>

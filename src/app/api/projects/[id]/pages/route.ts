@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateCaptureUrl, UrlValidationError } from "@/lib/validation/url";
 import { assertSafeId } from "@/lib/storage/paths";
-import { addApprovedPage, PageLimitError, DuplicatePageError } from "@/lib/storage/pages";
+import { addApprovedPage, DuplicatePageError } from "@/lib/storage/pages";
 
 export const runtime = "nodejs";
 
@@ -44,7 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { project, page } = await addApprovedPage(projectId, parsedUrl.toString(), label);
     return NextResponse.json({ project, page }, { status: 201 });
   } catch (err) {
-    if (err instanceof PageLimitError || err instanceof DuplicatePageError) {
+    if (err instanceof DuplicatePageError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
     if (err instanceof Error && err.message === "Project not found.") {

@@ -6,20 +6,10 @@ import { deletePageSelections } from "./review";
 import { removePageFromBoards } from "./boards";
 import type { ApprovedPage, ProjectData } from "@/types/project";
 
-// The homepage is always included and doesn't count against this limit (section 13 of the plan).
-export const MAX_ADDITIONAL_PAGES = 5;
-
 const slugId = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 8);
 
 export function generatePageSlug(): string {
   return `page-${slugId()}`;
-}
-
-export class PageLimitError extends Error {
-  constructor() {
-    super(`You can add up to ${MAX_ADDITIONAL_PAGES} additional pages.`);
-    this.name = "PageLimitError";
-  }
 }
 
 export class DuplicatePageError extends Error {
@@ -50,11 +40,6 @@ export async function addApprovedPage(
 ): Promise<{ project: ProjectData; page: ApprovedPage }> {
   const project = await readProject(projectId);
   if (!project) throw new Error("Project not found.");
-
-  const additionalCount = project.approvedPages.length - 1;
-  if (additionalCount >= MAX_ADDITIONAL_PAGES) {
-    throw new PageLimitError();
-  }
 
   const normalized = normalizeForComparison(url);
   if (project.approvedPages.some((p) => normalizeForComparison(p.url) === normalized)) {
