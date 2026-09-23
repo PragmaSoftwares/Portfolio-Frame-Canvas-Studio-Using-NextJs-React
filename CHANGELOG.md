@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.7.0] - 2026-09-23
+
+### Added
+
+- "Remove all" action on the screenshot review screen, for clearing every saved crop on a page at once instead of removing them one at a time.
+
 ## [1.6.0] - 2026-09-23
 
 ### Changed
