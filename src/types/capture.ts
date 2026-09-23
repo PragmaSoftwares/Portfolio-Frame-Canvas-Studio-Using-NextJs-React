@@ -1,4 +1,11 @@
-export type CaptureStatus = "capturing" | "ready" | "failed";
+// "cancelled" is distinct from "failed" — it means the capture was
+// deliberately stopped (explicit Cancel click, or the connection dropped
+// e.g. a page refresh mid-capture), not that something went wrong. Also
+// written by readPageCaptureMeta's own staleness check when a "capturing"
+// record is older than any real capture could still legitimately be
+// running (e.g. the server process itself was restarted mid-capture,
+// leaving nothing left to ever finish it) — see lib/storage/captures.ts.
+export type CaptureStatus = "capturing" | "ready" | "failed" | "cancelled";
 
 export interface DeviceCaptureFiles {
   fullPage: string; // filename within captures/<device>

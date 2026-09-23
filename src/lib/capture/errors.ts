@@ -3,6 +3,7 @@ export type CaptureErrorReason =
   | "timeout"
   | "blocked"
   | "redirected"
+  | "cancelled"
   | "unknown";
 
 export class CaptureError extends Error {
@@ -20,6 +21,7 @@ const FRIENDLY_MESSAGES: Record<CaptureErrorReason, string> = {
   timeout: "The website took too long to respond. It may be slow or unresponsive right now.",
   blocked: "The website blocked the automated browser from loading the page.",
   redirected: "The page redirected to a different domain than the one requested.",
+  cancelled: "Capture was cancelled.",
   unknown: "Something went wrong while capturing this website.",
 };
 

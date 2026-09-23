@@ -336,11 +336,22 @@ async function captureDevice(
  * once for the whole context) — covers sites whose "already dismissed"
  * flag lives in sessionStorage rather than a cookie or localStorage, which
  * storageStatePath alone can't reach. See assistedSetup.ts.
+ *
+ * `signal`, when given, is checked between devices (not sub-second — the
+ * granularity is "finishes whichever device is already in flight, then
+ * stops before starting the next one") and throws a `CaptureError` with
+ * reason "cancelled" once it fires. The API route wires this to an
+ * AbortController it registers in lib/capture/cancelRegistry.ts, not to
+ * the incoming request's own signal — confirmed live that request.signal
+ * never fires on client disconnect for a Node.js-runtime Route Handler in
+ * this Next.js version (only the Edge runtime's ctx exposes one at all),
+ * so a separate explicit Cancel request is what actually reaches this.
  */
 export async function captureAllDevices(
   url: string,
   storageStatePath?: string,
-  sessionStorageEntries?: Record<string, string>
+  sessionStorageEntries?: Record<string, string>,
+  signal?: AbortSignal
 ): Promise<CaptureAllResult> {
   const browser = await getBrowser();
   const context = await browser.newContext({
@@ -356,10 +367,18 @@ export async function captureAllDevices(
     ...(storageStatePath ? { storageState: storageStatePath } : {}),
   });
 
+  const checkCancelled = () => {
+    if (signal?.aborted) throw new CaptureError("cancelled", "Capture was cancelled.");
+  };
+
   try {
+    checkCancelled();
     const desktop = await captureDevice(context, url, DESKTOP_VIEWPORT, sessionStorageEntries);
+    checkCancelled();
     const laptop = await captureDevice(context, url, LAPTOP_VIEWPORT, sessionStorageEntries);
+    checkCancelled();
     const tablet = await captureDevice(context, url, TABLET_VIEWPORT, sessionStorageEntries);
+    checkCancelled();
     const mobile = await captureDevice(context, url, MOBILE_VIEWPORT, sessionStorageEntries);
     return { desktop, laptop, tablet, mobile };
   } finally {

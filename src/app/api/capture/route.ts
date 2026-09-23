@@ -13,6 +13,7 @@ import {
 } from "@/lib/storage/paths";
 import { readProject, touchProject } from "@/lib/storage/projects";
 import { writePageCaptureMeta } from "@/lib/storage/captures";
+import { registerCapture, unregisterCapture } from "@/lib/capture/cancelRegistry";
 import type { PageCaptureMeta, DeviceCaptureFiles } from "@/types/capture";
 
 export const runtime = "nodejs";
@@ -70,6 +71,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Page not found on this project." }, { status: 404 });
   }
 
+  // request.signal does NOT fire on client disconnect for a Node.js-runtime
+  // Route Handler in this Next.js version (confirmed live, and by the
+  // platform's own docs — only the Edge runtime's ctx exposes a signal at
+  // all). This registry is what a separate POST /api/capture/cancel
+  // actually reaches into to stop this specific capture — and, checked
+  // here before anything else starts, is also what stops two requests for
+  // the exact same project+page (e.g. the same project open in two tabs,
+  // both clicking Capture on the same page at once) from running
+  // concurrently and racing to write the same files.
+  const controller = registerCapture(projectId, pageSlug);
+  if (!controller) {
+    return NextResponse.json(
+      { error: "This page is already being captured — check if another tab has it running.", conflict: true },
+      { status: 409 }
+    );
+  }
+
   const now = new Date().toISOString();
   const baseMeta: PageCaptureMeta = {
     projectId,
@@ -107,7 +125,8 @@ export async function POST(request: Request) {
     const captured = await captureAllDevices(
       page.url,
       hasConsentState ? consentStatePath : undefined,
-      sessionStorageEntries
+      sessionStorageEntries,
+      controller.signal
     );
 
     const [desktop, laptop, tablet, mobile] = await Promise.all([
@@ -128,15 +147,20 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ capture: readyMeta });
   } catch (err) {
+    // A cancelled capture (explicit Cancel click) is expected, not an error
+    // worth logging or a 502.
+    const cancelled = err instanceof CaptureError && err.reason === "cancelled";
     const message = err instanceof CaptureError ? friendlyCaptureMessage(err) : "Capture failed unexpectedly.";
-    const failedMeta: PageCaptureMeta = {
+    const finishedMeta: PageCaptureMeta = {
       ...baseMeta,
-      status: "failed",
+      status: cancelled ? "cancelled" : "failed",
       error: message,
       updatedAt: new Date().toISOString(),
     };
-    await writePageCaptureMeta(failedMeta);
-    console.error("Capture failed:", err);
-    return NextResponse.json({ error: message, capture: failedMeta }, { status: 502 });
+    await writePageCaptureMeta(finishedMeta);
+    if (!cancelled) console.error("Capture failed:", err);
+    return NextResponse.json({ error: message, capture: finishedMeta }, { status: cancelled ? 499 : 502 });
+  } finally {
+    unregisterCapture(projectId, pageSlug);
   }
 }

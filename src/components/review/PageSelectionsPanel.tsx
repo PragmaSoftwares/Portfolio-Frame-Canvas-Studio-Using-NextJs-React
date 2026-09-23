@@ -122,7 +122,13 @@ export function PageSelectionsPanel({ projectId, page, capture, selections: init
           </p>
         </div>
         <p className="rounded-xl border border-dashed border-slate-800 px-6 py-6 text-center text-sm text-slate-400">
-          {capture?.status === "failed" ? "This page failed to capture. Retry it from the project page first." : "Not captured yet. Capture this page first."}
+          {capture?.status === "capturing"
+            ? "Still capturing — come back once it finishes, or check the project page."
+            : capture?.status === "cancelled"
+              ? "Capture was cancelled before it finished. Capture this page again from the project page."
+              : capture?.status === "failed"
+                ? "This page failed to capture. Retry it from the project page first."
+                : "Not captured yet. Capture this page first."}
         </p>
       </section>
     );

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ProjectData, ApprovedPage } from "@/types/project";
 import type { PageCaptureMeta } from "@/types/capture";
 import type { Board } from "@/types/board";
 import { accentFor } from "@/lib/ui/cardAccent";
+import { TagPicker } from "@/components/tags/TagPicker";
+import { TagPills } from "@/components/tags/TagPills";
 
 const HOME_SLUG = "home";
 
@@ -29,8 +31,25 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
   const router = useRouter();
   const [pages, setPages] = useState<ApprovedPage[]>(project.approvedPages);
   const [captures, setCaptures] = useState<Record<string, PageCaptureMeta>>(initialCaptures);
-  const [capturingSlug, setCapturingSlug] = useState<string | null>(null);
-  const [runningAll, setRunningAll] = useState(false);
+  const [capturingSlug, setCapturingSlugState] = useState<string | null>(null);
+  // Slugs waiting their turn — a page whose Capture/Recapture/Retry is
+  // clicked while another is already running joins this queue instead of
+  // being blocked, same idea as queuing the next episode while one
+  // downloads: click as many as you want, they run one at a time in order.
+  // Mirrored into refs (source of truth for control flow) alongside the
+  // state (which exists purely to re-render) — driven directly from
+  // enqueueCapture/runCapture rather than a useEffect, so there's no
+  // stale-closure risk from reading state inside a long-running async
+  // function, and no "setState during an effect" cascading-render lint
+  // error either.
+  const [captureQueue, setCaptureQueueState] = useState<string[]>([]);
+  const capturingSlugRef = useRef<string | null>(null);
+  const captureQueueRef = useRef<string[]>([]);
+  // The active capture whose Cancel was clicked but hasn't been confirmed
+  // stopped yet — purely cosmetic ("Cancelling…" instead of "Cancel"), so a
+  // click doesn't look like it did nothing while the server works its way
+  // to its next checkpoint (up to one device's capture time later).
+  const [cancellingSlug, setCancellingSlug] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
 
   const [newPageUrl, setNewPageUrl] = useState("");
@@ -50,7 +69,13 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
   const [manualUploadEnabled, setManualUploadEnabled] = useState(project.manualUploadEnabled);
   const [manualUploadBusy, setManualUploadBusy] = useState(false);
 
-  const busy = capturingSlug !== null || runningAll;
+  const [tags, setTags] = useState<string[]>(project.tags);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [editingTags, setEditingTags] = useState(false);
+  const [editTagsValue, setEditTagsValue] = useState<string[]>(project.tags);
+  const [savingTags, setSavingTags] = useState(false);
+  const [tagsError, setTagsError] = useState<string | null>(null);
+
 
   // Recovers the "a window is open, waiting for you" UI state after a page
   // refresh — the session itself lives server-side, independent of this tab.
@@ -61,6 +86,34 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetch("/api/tags")
+      .then((res) => res.json())
+      .then((data) => setTagSuggestions(Array.isArray(data.tags) ? data.tags : []))
+      .catch(() => {});
+  }, []);
+
+  async function handleSaveTags() {
+    setSavingTags(true);
+    setTagsError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: editTagsValue }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not save tags.");
+      setTags(data.project.tags);
+      setEditingTags(false);
+      router.refresh();
+    } catch (err) {
+      setTagsError(err instanceof Error ? err.message : "Could not save tags.");
+    } finally {
+      setSavingTags(false);
+    }
+  }
 
   async function handleStartAssistedSetup() {
     setAssistedSetupBusy(true);
@@ -124,7 +177,64 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
     }
   }
 
-  async function captureOne(slug: string) {
+  function setCapturingSlug(slug: string | null) {
+    capturingSlugRef.current = slug;
+    setCapturingSlugState(slug);
+  }
+
+  function setCaptureQueue(next: string[]) {
+    captureQueueRef.current = next;
+    setCaptureQueueState(next);
+  }
+
+  // Pulls the next queued slug and starts it, if nothing's currently
+  // running — called directly from enqueueCapture (an idle queue should
+  // start immediately) and from runCapture's own finally block (so
+  // finishing one capture hands off to the next), rather than a useEffect
+  // watching queue/capturingSlug — that would need to call setState from
+  // inside the effect body just to pop the queue, which triggers React's
+  // "avoid setState directly within an effect" lint rule for good reason
+  // (cascading renders). Reading both refs (not the React state) is what
+  // makes this safe to call from runCapture's finally after a long series
+  // of awaits — the state variables themselves would reflect whatever they
+  // were back when runCapture started, not any enqueues that happened while
+  // it was in flight.
+  function startNextCapture() {
+    if (capturingSlugRef.current !== null) return;
+    const [next, ...rest] = captureQueueRef.current;
+    if (next === undefined) return;
+    setCaptureQueue(rest);
+    runCapture(next);
+  }
+
+  function enqueueCapture(slug: string) {
+    if (capturingSlugRef.current === slug || captureQueueRef.current.includes(slug)) return;
+    setCaptureQueue([...captureQueueRef.current, slug]);
+    startNextCapture();
+  }
+
+  // Cancelling the active capture posts to a dedicated endpoint rather than
+  // aborting this fetch client-side — see cancelRegistry.ts for why that
+  // doesn't work in this runtime. The original /api/capture request just
+  // keeps running until the server notices the cancel flag at its next
+  // checkpoint and responds with status: "cancelled" through the normal
+  // success path below, same as any other way a capture can finish.
+  // Cancelling a queued-but-not-started one just removes it from the
+  // queue, nothing server-side to reach yet.
+  function handleCancelCapture(slug: string) {
+    if (capturingSlugRef.current === slug) {
+      setCancellingSlug(slug);
+      fetch("/api/capture/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: project.id, pageSlug: slug }),
+      }).catch(() => {});
+    } else {
+      setCaptureQueue(captureQueueRef.current.filter((s) => s !== slug));
+    }
+  }
+
+  async function runCapture(slug: string) {
     setCapturingSlug(slug);
     try {
       const res = await fetch("/api/capture", {
@@ -133,7 +243,14 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
         body: JSON.stringify({ projectId: project.id, pageSlug: slug }),
       });
       const data = await res.json();
-      setCaptures((prev) => ({ ...prev, [slug]: data.capture }));
+      if (res.status === 409) {
+        // The same project open in another tab already has this exact page
+        // capturing — nothing happened here, so leave the existing capture
+        // state alone (it's still accurate) rather than overwriting it.
+        setPageError(data.error ?? "This page is already being captured elsewhere.");
+      } else {
+        setCaptures((prev) => ({ ...prev, [slug]: data.capture }));
+      }
     } catch {
       setCaptures((prev) => ({
         ...prev,
@@ -143,20 +260,23 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
           pageUrl: pages.find((p) => p.slug === slug)?.url ?? "",
           status: "failed",
           error: "Could not reach the server.",
-          createdAt: new Date().toISOString(),
+          createdAt: prev[slug]?.createdAt ?? new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
       }));
     } finally {
       setCapturingSlug(null);
+      setCancellingSlug((prev) => (prev === slug ? null : prev));
       router.refresh();
+      startNextCapture();
     }
   }
 
   function handleCaptureAllClick() {
     // Each page captures 4 devices sequentially (roughly 30-60s/page based
-    // on real runs) — with enough pages this is a genuinely long,
-    // uninterruptible commitment to trigger by accident.
+    // on real runs) — with enough pages this is a genuinely long
+    // commitment to trigger by accident, even though any page can now be
+    // cancelled individually once it's queued or running.
     const estimateMinutes = Math.max(1, Math.round(pages.length * 0.5));
     const pagesWithUploads = pages.filter((p) =>
       Object.values(captures[p.slug]?.images ?? {}).some((img) => img?.uploaded)
@@ -168,10 +288,10 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
     const ok = window.confirm(
       `Capture all ${pages.length} page${pages.length === 1 ? "" : "s"}? Each page takes roughly 30-60 seconds ` +
         `(4 device shots each) — this could take about ${estimateMinutes} minute${estimateMinutes === 1 ? "" : "s"} ` +
-        `total, and can't be cancelled partway through.${uploadWarning}`
+        `total. Pages run one at a time and each can be cancelled individually while queued or in progress.${uploadWarning}`
     );
     if (!ok) return;
-    captureAll();
+    for (const page of pages) enqueueCapture(page.slug);
   }
 
   function handleCaptureClick(slug: string) {
@@ -187,15 +307,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
         : `Recapture "${label}"? This replaces its existing screenshots and takes a little while.`;
       if (!window.confirm(message)) return;
     }
-    captureOne(slug);
-  }
-
-  async function captureAll() {
-    setRunningAll(true);
-    for (const page of pages) {
-      await captureOne(page.slug);
-    }
-    setRunningAll(false);
+    enqueueCapture(slug);
   }
 
   async function handleAddPage(e: React.FormEvent) {
@@ -312,8 +424,48 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
             <a href={project.mainUrl} target="_blank" rel="noreferrer" className="hover:text-indigo-400">
               {project.mainUrl}
             </a>
-            {project.category ? ` · ${project.category}` : ""}
+            {/* Editing the main URL itself lives on the Home row below (it
+                doubles as the "home" approved page) — see onEditUrl there. */}
           </p>
+
+          {editingTags ? (
+            <div className="max-w-sm space-y-2 pt-1">
+              <TagPicker value={editTagsValue} onChange={setEditTagsValue} suggestions={tagSuggestions} disabled={savingTags} />
+              <div className="flex items-center gap-3 text-xs">
+                <button
+                  onClick={handleSaveTags}
+                  disabled={savingTags}
+                  className="font-medium text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setEditTagsValue(tags);
+                    setEditingTags(false);
+                    setTagsError(null);
+                  }}
+                  className="text-slate-500 hover:text-slate-300"
+                >
+                  Cancel
+                </button>
+              </div>
+              {tagsError && <p className="text-xs text-red-400">{tagsError}</p>}
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <TagPills tags={tags} />
+              <button
+                onClick={() => {
+                  setEditTagsValue(tags);
+                  setEditingTags(true);
+                }}
+                className="text-xs text-indigo-400 hover:text-indigo-300"
+              >
+                Edit tags
+              </button>
+            </div>
+          )}
         </header>
 
         <section className="space-y-4">
@@ -323,10 +475,9 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
             </h2>
             <button
               onClick={handleCaptureAllClick}
-              disabled={busy}
-              className="bg-gradient-accent glow-accent rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+              className="bg-gradient-accent glow-accent rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5"
             >
-              {runningAll ? "Capturing all…" : "Capture all pages"}
+              Capture all pages
             </button>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-3">
@@ -428,8 +579,10 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
                 page={page}
                 capture={captures[page.slug]}
                 isCapturing={capturingSlug === page.slug}
-                disabled={busy}
+                isCancelling={cancellingSlug === page.slug}
+                queuePosition={captureQueue.indexOf(page.slug)}
                 onCapture={() => handleCaptureClick(page.slug)}
+                onCancel={() => handleCancelCapture(page.slug)}
                 onRemove={page.slug === HOME_SLUG ? undefined : () => handleRemovePage(page.slug)}
                 onEditUrl={page.slug === HOME_SLUG ? handleEditHomeUrl : undefined}
                 manualUploadEnabled={manualUploadEnabled}
@@ -594,8 +747,10 @@ function PageRow({
   page,
   capture,
   isCapturing,
-  disabled,
+  isCancelling,
+  queuePosition,
   onCapture,
+  onCancel,
   onRemove,
   onEditUrl,
   manualUploadEnabled,
@@ -604,13 +759,22 @@ function PageRow({
   page: ApprovedPage;
   capture: PageCaptureMeta | undefined;
   isCapturing: boolean;
-  disabled: boolean;
+  /** Cancel was clicked for this (actively-capturing) row, not yet confirmed stopped. */
+  isCancelling: boolean;
+  /** Index within the capture queue, or -1 when not queued. */
+  queuePosition: number;
   onCapture: () => void;
+  onCancel: () => void;
   onRemove?: () => void;
   onEditUrl?: (newUrl: string) => Promise<void>;
   manualUploadEnabled: boolean;
 }) {
-  const status = isCapturing ? "capturing" : capture?.status ?? "pending";
+  const isQueued = queuePosition >= 0;
+  // Blocks Edit-URL/Remove for a page that's actively capturing or waiting
+  // in the queue — every other row stays fully independent, so clicking
+  // Capture on one page never blocks clicking Capture on another.
+  const rowBusy = isCapturing || isQueued;
+  const status = isCapturing ? "capturing" : isQueued ? "queued" : capture?.status ?? "pending";
   const [editingUrl, setEditingUrl] = useState(false);
   const [urlDraft, setUrlDraft] = useState(page.url);
   const [savingUrl, setSavingUrl] = useState(false);
@@ -676,7 +840,7 @@ function PageRow({
             {onEditUrl && (
               <button
                 onClick={() => setEditingUrl(true)}
-                disabled={disabled}
+                disabled={rowBusy}
                 className="ml-2 text-indigo-400 hover:text-indigo-300 disabled:opacity-50"
               >
                 Edit
@@ -684,7 +848,7 @@ function PageRow({
             )}
           </p>
         )}
-        {status !== "capturing" && capture?.images && (
+        {!isCapturing && capture?.images && (
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
             {DEVICE_KEYS.filter((device) => capture.images![device]).map((device) => {
               const deviceImage = capture.images![device]!;
@@ -705,18 +869,30 @@ function PageRow({
             })}
           </div>
         )}
-        {status === "failed" && capture?.error && <p className="mt-1 text-xs text-red-400">{capture.error}</p>}
+        {(status === "failed" || status === "cancelled") && capture?.error && (
+          <p className="mt-1 text-xs text-red-400">{capture.error}</p>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
-        <StatusBadge status={status} />
-        <button
-          onClick={onCapture}
-          disabled={disabled}
-          className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {status === "capturing" ? "Capturing…" : status === "ready" ? "Recapture" : status === "failed" ? "Retry" : "Capture"}
-        </button>
+        <StatusBadge status={status} queuePosition={queuePosition} />
+        {rowBusy ? (
+          <button
+            onClick={onCancel}
+            disabled={isCancelling}
+            title={isCancelling ? "Stopping — this can take a little while to actually take effect." : undefined}
+            className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-red-400 hover:border-red-500 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isCancelling ? "Cancelling…" : "Cancel"}
+          </button>
+        ) : (
+          <button
+            onClick={onCapture}
+            className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium hover:border-slate-500"
+          >
+            {status === "ready" ? "Recapture" : status === "failed" || status === "cancelled" ? "Retry" : "Capture"}
+          </button>
+        )}
         {manualUploadEnabled && (
           <Link
             href={`/projects/${projectId}/pages/${page.slug}/upload`}
@@ -728,7 +904,7 @@ function PageRow({
         {onRemove && (
           <button
             onClick={onRemove}
-            disabled={disabled}
+            disabled={rowBusy}
             className="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
           >
             Remove
@@ -744,16 +920,19 @@ function PageRow({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, queuePosition }: { status: string; queuePosition?: number }) {
   const styles: Record<string, string> = {
     pending: "bg-slate-800 text-slate-400",
+    queued: "bg-slate-800 text-slate-300",
     capturing: "bg-indigo-950 text-indigo-300",
     ready: "bg-emerald-950 text-emerald-400",
     failed: "bg-red-950 text-red-400",
+    cancelled: "bg-amber-950 text-amber-400",
   };
+  const label = status === "queued" && queuePosition !== undefined && queuePosition >= 0 ? `queued #${queuePosition + 1}` : status;
   return (
     <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${styles[status] ?? styles.pending}`}>
-      {status}
+      {label}
     </span>
   );
 }
