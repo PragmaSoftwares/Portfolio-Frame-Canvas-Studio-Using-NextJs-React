@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { assertSafeId, projectExportsDir, projectExportMetaDir } from "@/lib/storage/paths";
 import { readBoard } from "@/lib/storage/boards";
-import { exportBoardToPng, ExportError } from "@/lib/export/exportBoard";
+import { exportBoardToPng, ExportError, EXPORT_SCALE_FACTOR } from "@/lib/export/exportBoard";
 import type { ExportMeta } from "@/types/capture";
 
 export const runtime = "nodejs";
@@ -43,8 +43,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       templateId: boardId,
       createdAt: new Date().toISOString(),
       file: filename,
-      width: board.canvasWidth,
-      height: board.canvasHeight,
+      // The actual output PNG's pixel dimensions, not the board's own CSS
+      // pixel layout size — exportBoardToPng renders at EXPORT_SCALE_FACTOR
+      // for a sharp, retina-ready file. See exportBoard.ts.
+      width: board.canvasWidth * EXPORT_SCALE_FACTOR,
+      height: board.canvasHeight * EXPORT_SCALE_FACTOR,
     };
     const metaDir = projectExportMetaDir(projectId);
     await fs.mkdir(metaDir, { recursive: true });

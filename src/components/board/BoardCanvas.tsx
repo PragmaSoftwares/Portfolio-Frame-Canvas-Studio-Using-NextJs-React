@@ -7,6 +7,18 @@ import { cssFontFamily } from "@/lib/fonts";
 export const BOARD_WIDTH = 2000;
 export const BOARD_HEIGHT = 1500;
 
+// Output pixel-density multiplier applied on top of the CSS pixel size
+// above when exporting a board to PNG (see lib/export/exportBoard.ts) — the
+// delivered file has this many times the physical pixels of the on-screen
+// composition, so it stays sharp on a retina/high-DPI display instead of
+// needing to be upscaled from a 1x source. At the default 2000x1500 board
+// size this produces a 4000x3000 PNG — at, not past, Upwork's stated
+// 4000px-wide upper limit, with no headroom left; revisit this constant
+// first if that limit is ever tightened. Lives here (not in exportBoard.ts,
+// which pulls in Playwright/Node-only code) so client components like
+// CanvasEditor can import it too, just to label the export button correctly.
+export const EXPORT_SCALE_FACTOR = 2;
+
 interface BoardCanvasProps {
   children: ReactNode;
   width?: number;

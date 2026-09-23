@@ -10,7 +10,7 @@ import { CustomDeviceFrame } from "@/components/board/CustomDeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
 import { CornerPinEditor } from "./CornerPinEditor";
 import { InfoTooltip } from "@/components/ui/Tooltip";
-import { backgroundStyleFor, WatermarkOverlay } from "@/components/board/BoardCanvas";
+import { backgroundStyleFor, WatermarkOverlay, EXPORT_SCALE_FACTOR } from "@/components/board/BoardCanvas";
 import { DEFAULT_CROP } from "@/types/review";
 import type { CropFit } from "@/types/review";
 import { defaultFrameWidth, frameOuterHeight, defaultFrameForDevice, defaultContentFit } from "@/lib/board/frameSize";
@@ -901,7 +901,9 @@ export function CanvasEditor({
             disabled={exportPhase === "exporting" || items.length === 0}
             className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {exportPhase === "exporting" ? "Exporting…" : `Export PNG (${initialBoard.canvasWidth}×${initialBoard.canvasHeight})`}
+            {exportPhase === "exporting"
+              ? "Exporting…"
+              : `Export PNG (${initialBoard.canvasWidth * EXPORT_SCALE_FACTOR}×${initialBoard.canvasHeight * EXPORT_SCALE_FACTOR})`}
           </button>
           {exportUrl && (
             <a href={exportUrl} target="_blank" rel="noreferrer" className="text-sm text-emerald-400 underline underline-offset-4">

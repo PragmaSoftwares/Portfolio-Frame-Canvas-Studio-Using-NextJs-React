@@ -1,5 +1,7 @@
 import { getBrowser } from "@/lib/capture/browser";
-import { BOARD_WIDTH, BOARD_HEIGHT } from "@/components/board/BoardCanvas";
+import { BOARD_WIDTH, BOARD_HEIGHT, EXPORT_SCALE_FACTOR } from "@/components/board/BoardCanvas";
+
+export { EXPORT_SCALE_FACTOR };
 
 export class ExportError extends Error {
   constructor(message: string) {
@@ -17,9 +19,10 @@ export interface ExportDimensions {
 
 /**
  * Renders /render/[projectId]/[templateId] in a real browser and screenshots
- * only the #board-canvas element, producing an exact width x height PNG.
- * Defaults to the 2000x1500 master size; pass a template's own dimensions
- * (e.g. Case Study's portrait canvas) to verify against those instead.
+ * only the #board-canvas element, producing a PNG at `dimensions` (CSS
+ * pixels) scaled up by EXPORT_SCALE_FACTOR (physical pixels) — e.g. the
+ * default 2000x1500 master composition exports as a 4000x3000 PNG. Pass a
+ * board's own dimensions to verify against those instead of the default.
  */
 export async function exportBoardToPng(
   renderUrl: string,
@@ -28,7 +31,7 @@ export async function exportBoardToPng(
   const browser = await getBrowser();
   const context = await browser.newContext({
     viewport: dimensions,
-    deviceScaleFactor: 1,
+    deviceScaleFactor: EXPORT_SCALE_FACTOR,
   });
 
   try {
