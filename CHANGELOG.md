@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.8.0] - 2026-09-23
+
+### Added
+
+- Tags — replace the old single free-text category with any number of tags per project, picked from previously-used ones or created on the spot. Edit a project's tags from its own page.
+- Sort the dashboard by last modified, date added, or name, and filter it by tag (matches a project with any of the selected tags).
+- A capture queue on a project's Pages list — click Capture on as many pages as you want; they run one at a time automatically instead of blocking each other. Any queued or in-progress capture can be cancelled individually.
+- Each project card on the dashboard shows how many URLs have been added.
+- Duplicating a project now asks for confirmation first.
+
+### Changed
+
+- A capture interrupted by a server restart no longer gets stuck showing "capturing" forever — it's automatically marked as failed so it can be retried.
+
 ## [1.7.0] - 2026-09-23
 
 ### Added

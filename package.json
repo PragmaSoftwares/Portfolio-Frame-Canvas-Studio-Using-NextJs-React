@@ -1,6 +1,6 @@
 {
   "name": "portfolio-board-generator",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Local-first tool that captures real website screenshots with Playwright and composes them into framed portfolio board PNGs on a free-form canvas — no account, no cloud.",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
