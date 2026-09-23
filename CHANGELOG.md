@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.5.0] - 2026-09-23
+
+### Changed
+
+- Removed the 5-page limit on additional pages you can add to a project — add as many as you need.
+
 ## [1.4.0] - 2026-09-22
 
 ### Added
