@@ -261,10 +261,29 @@ path; that's the project's only defense against path traversal.
 - [`package.json`](package.json)'s `version` + [`CHANGELOG.md`](CHANGELOG.md)
   (Keep a Changelog style) track every release. Bump the version and add one
   changelog entry per push/finalize point, not per individual edit.
+- **These two never move independently.** If a commit/push session includes
+  any user-facing change, bumping `package.json`'s version *requires* adding
+  the matching `CHANGELOG.md` entry in that same commit, and vice versa —
+  never bump one without the other. Before telling the user a push is ready,
+  diff-check that `CHANGELOG.md`'s top heading version equals
+  `package.json`'s version.
 - Changelog entries describe **user-facing behavior only** — skip anything a
   person using the app wouldn't notice (internal refactors, cosmetic
   housekeeping). No empty "Unreleased" placeholder sections.
 - Tag every version bump: `git tag -a vX.Y.Z -m "..."` then `git push origin vX.Y.Z`.
+- **Committed locally is not the same as visible to anyone else** — the same
+  "local reality vs. what's externally visible" trap as the stale-server
+  gotcha in **Testing changes** above, just one level up the stack. The
+  running app's footer version reads `package.json` directly off disk, so it
+  always reflects the local working copy immediately — but the footer's
+  CHANGELOG.md link points at the GitHub-hosted file, which only reflects
+  whatever was last *pushed*. A version bump + changelog entry that's
+  committed but not yet pushed will look mismatched to anyone checking
+  GitHub (or clicking that link) even though the local repo is perfectly in
+  sync. If the user reports the app version and the changelog disagreeing,
+  check `git log`/`git status` for unpushed commits before assuming a bump
+  was skipped — confirm what's actually reached `origin` before diagnosing
+  further.
 
 ## License
 
