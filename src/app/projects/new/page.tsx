@@ -1,18 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppHeader } from "@/components/nav/AppHeader";
 import { AppFooter } from "@/components/nav/AppFooter";
+import { TagPicker } from "@/components/tags/TagPicker";
 
 export default function NewProjectPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [mainUrl, setMainUrl] = useState("");
-  const [category, setCategory] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/tags")
+      .then((res) => res.json())
+      .then((data) => setTagSuggestions(Array.isArray(data.tags) ? data.tags : []))
+      .catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +31,7 @@ export default function NewProjectPage() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, mainUrl, category: category || undefined }),
+        body: JSON.stringify({ name, mainUrl, tags }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not create the project.");
@@ -83,16 +92,15 @@ export default function NewProjectPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm text-slate-300" htmlFor="category">
-                Category <span className="text-slate-500">(optional)</span>
+              <label className="text-sm text-slate-300">
+                Tags <span className="text-slate-500">(optional)</span>
               </label>
-              <input
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
+              <TagPicker
+                value={tags}
+                onChange={setTags}
+                suggestions={tagSuggestions}
                 placeholder="E-commerce, SaaS, Corporate…"
                 disabled={submitting}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 disabled:opacity-50"
               />
             </div>
 

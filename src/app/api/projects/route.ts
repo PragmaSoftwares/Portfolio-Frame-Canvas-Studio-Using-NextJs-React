@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { validateCaptureUrl, UrlValidationError } from "@/lib/validation/url";
+import { normalizeTags } from "@/lib/validation/tags";
 import { generateProjectId, HOME_PAGE_SLUG } from "@/lib/storage/paths";
 import { writeProject, listProjects } from "@/lib/storage/projects";
 import type { ProjectData } from "@/types/project";
@@ -22,7 +23,6 @@ export async function POST(request: Request) {
   const record = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
   const rawName = record.name;
   const rawUrl = record.mainUrl;
-  const rawCategory = record.category;
 
   if (typeof rawName !== "string" || rawName.trim().length === 0) {
     return NextResponse.json({ error: "A project name is required." }, { status: 400 });
@@ -41,14 +41,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "That doesn't look like a valid URL." }, { status: 400 });
   }
 
-  const category = typeof rawCategory === "string" && rawCategory.trim().length > 0 ? rawCategory.trim() : null;
+  const tags = normalizeTags(record.tags ?? []);
+  if (tags === null) {
+    return NextResponse.json({ error: "Tags must be a list of strings." }, { status: 400 });
+  }
 
   const now = new Date().toISOString();
   const project: ProjectData = {
     id: generateProjectId(),
     name: rawName.trim(),
     mainUrl: parsedUrl.toString(),
-    category,
+    tags,
     approvedPages: [{ slug: HOME_PAGE_SLUG, url: parsedUrl.toString(), label: "Home" }],
     assistedSetupAt: null,
     manualUploadEnabled: false,

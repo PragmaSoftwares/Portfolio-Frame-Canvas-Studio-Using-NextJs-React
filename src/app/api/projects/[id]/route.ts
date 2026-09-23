@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { validateCaptureUrl, UrlValidationError } from "@/lib/validation/url";
+import { normalizeTags } from "@/lib/validation/tags";
 import { assertSafeId } from "@/lib/storage/paths";
 import { readProject, updateProject, deleteProject, type UpdateProjectPatch } from "@/lib/storage/projects";
 
@@ -44,9 +45,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
-  if ("category" in record) {
-    patch.category =
-      typeof record.category === "string" && record.category.trim().length > 0 ? record.category.trim() : null;
+  if ("tags" in record) {
+    const parsed = normalizeTags(record.tags);
+    if (parsed === null) {
+      return NextResponse.json({ error: "Tags must be a list of strings." }, { status: 400 });
+    }
+    patch.tags = parsed;
   }
 
   if ("manualUploadEnabled" in record) {

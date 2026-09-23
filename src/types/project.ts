@@ -8,7 +8,13 @@ export interface ProjectData {
   id: string;
   name: string;
   mainUrl: string;
-  category: string | null;
+  // Free-form, user-defined labels (e.g. "Marketing", "WordPress", "CMS") —
+  // replaced the old single free-text `category` field so a project can be
+  // found under more than one facet. The set of "known" tags for
+  // autocomplete (see TagPicker, GET /api/tags) is derived from whatever's
+  // actually in use across every project's own `tags`, not stored
+  // separately — there's no independent tag registry to fall out of sync.
+  tags: string[];
   // Watermark (text/visibility) is agency-wide, not per-project — see
   // AgencySettings.defaultWatermarkText/defaultWatermarkVisible.
   approvedPages: ApprovedPage[];

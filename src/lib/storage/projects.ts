@@ -41,6 +41,15 @@ function migrateProject(raw: Record<string, unknown>): ProjectData {
   delete raw.technologiesUsed;
   if (raw.assistedSetupAt === undefined) raw.assistedSetupAt = null;
   if (raw.manualUploadEnabled === undefined) raw.manualUploadEnabled = false;
+  // `category` (a single free-text string) was replaced by `tags` (a list) —
+  // carry any existing category forward as that project's one starting tag
+  // rather than discarding it, so nothing written before this change loses
+  // its categorization; re-splitting it into finer tags is a manual edit.
+  if (!Array.isArray(raw.tags)) {
+    const legacyCategory = typeof raw.category === "string" ? raw.category.trim() : "";
+    raw.tags = legacyCategory.length > 0 ? [legacyCategory] : [];
+  }
+  delete raw.category;
   return raw as unknown as ProjectData;
 }
 
@@ -85,7 +94,7 @@ export async function deleteProject(id: string): Promise<void> {
 export interface UpdateProjectPatch {
   name?: string;
   mainUrl?: string;
-  category?: string | null;
+  tags?: string[];
   assistedSetupAt?: string | null;
   manualUploadEnabled?: boolean;
 }
