@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { CroppedImage } from "./CroppedImage";
-import { matrix3dForQuad, type Quad, type Point } from "@/lib/canvas/homography";
+import { matrix3dForQuad, CONTENT_SUPERSAMPLE, type Quad, type Point } from "@/lib/canvas/homography";
 import { DEFAULT_CROP } from "@/types/review";
 import type { CropSettings } from "@/types/review";
 import type { CustomFrame } from "@/types/frame";
@@ -103,7 +103,13 @@ export function CustomDeviceFrame({
   // too small) nor wastes it (source far larger than what's ever shown).
   const flatWidth = Math.max(1, Math.round((distance(destination.topLeft, destination.topRight) + distance(destination.bottomLeft, destination.bottomRight)) / 2));
   const flatHeight = Math.max(1, Math.round((distance(destination.topLeft, destination.bottomLeft) + distance(destination.topRight, destination.bottomRight)) / 2));
-  const borderRadius = cornerRadiusPct * Math.min(flatWidth, flatHeight);
+  // Authored larger than that on-screen size on purpose — see
+  // CONTENT_SUPERSAMPLE's own comment. The matrix bakes in a compensating
+  // shrink, so this doesn't change anything about where content actually
+  // lands, only how much source detail the warp has to work with.
+  const sourceWidth = flatWidth * CONTENT_SUPERSAMPLE;
+  const sourceHeight = flatHeight * CONTENT_SUPERSAMPLE;
+  const borderRadius = cornerRadiusPct * Math.min(sourceWidth, sourceHeight);
 
   return (
     <div style={{ position: "absolute", width, height, ...style }}>
@@ -112,13 +118,13 @@ export function CustomDeviceFrame({
           position: "absolute",
           left: 0,
           top: 0,
-          width: flatWidth,
-          height: flatHeight,
+          width: sourceWidth,
+          height: sourceHeight,
           transformOrigin: "0 0",
-          transform: matrix3dForQuad(flatWidth, flatHeight, destination),
+          transform: matrix3dForQuad(sourceWidth, sourceHeight, destination),
         }}
       >
-        <ScreenContent src={src} crop={crop} width={flatWidth} height={flatHeight} contentBackground={contentBackground} borderRadius={borderRadius} />
+        <ScreenContent src={src} crop={crop} width={sourceWidth} height={sourceHeight} contentBackground={contentBackground} borderRadius={borderRadius} />
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

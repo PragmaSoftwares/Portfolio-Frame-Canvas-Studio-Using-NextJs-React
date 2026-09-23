@@ -1,3 +1,17 @@
+// A layer with a CSS `matrix3d()` transform gets rasterized by the browser's
+// compositor into its own texture, at a resolution that isn't reliably tied
+// 1:1 to the layer's final on-screen size — confirmed live: content sized to
+// exactly match its destination quad (no nominal scaling at all) still came
+// out visibly softer through a matrix3d-transformed layer than the same
+// content rendered directly, even at a high overall page deviceScaleFactor
+// (see lib/export/exportBoard.ts). Authoring the pre-warp content at this
+// many times its true on-screen size (the matrix bakes in a compensating
+// shrink automatically — see matrix3dForQuad below) gives the compositor
+// more source detail than it needs, so whatever softening its rasterization
+// introduces lands well below what's visible in the final export. Used by
+// both DeviceFrame.tsx (built-in frames) and CustomDeviceFrame.tsx.
+export const CONTENT_SUPERSAMPLE = 2;
+
 export interface Point {
   x: number;
   y: number;
