@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.6.0] - 2026-09-23
+
+### Changed
+
+- Screenshots and exported board PNGs are now captured/rendered at 2x resolution, so both look sharp on retina/high-DPI displays instead of needing to be upscaled.
+
+### Fixed
+
+- Full-page captures now wait for lazy-loaded images to finish before finishing, so content that only loads on scroll no longer shows up blank.
+- Screenshots placed inside a device frame no longer look blurrier than the original cropped image.
+
 ## [1.5.0] - 2026-09-23
 
 ### Changed
