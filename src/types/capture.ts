@@ -5,7 +5,11 @@
 // record is older than any real capture could still legitimately be
 // running (e.g. the server process itself was restarted mid-capture,
 // leaving nothing left to ever finish it) — see lib/storage/captures.ts.
-export type CaptureStatus = "capturing" | "ready" | "failed" | "cancelled";
+// "queued" means a global concurrency limit (see lib/capture/globalQueue.ts)
+// is already at capacity across every project — this request is accepted
+// and waiting its turn, not yet actually running a browser. Distinct from
+// "capturing", which means Playwright work is actually in flight right now.
+export type CaptureStatus = "capturing" | "ready" | "failed" | "cancelled" | "queued";
 
 export interface DeviceCaptureFiles {
   fullPage: string; // filename within captures/<device>

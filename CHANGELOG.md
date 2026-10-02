@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.11.0] - 2026-10-02
+
+### Added
+
+- A server-wide limit of 3 captures running at once, across every project and browser tab — anything beyond that is queued automatically and starts the moment a slot frees, instead of all piling onto the server's CPU/memory at the same time. A queued page's row shows "queued #N" the same way a locally-queued one already did.
+
 ## [1.10.0] - 2026-10-02
 
 ### Added

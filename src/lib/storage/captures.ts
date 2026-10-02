@@ -12,19 +12,31 @@ export async function writePageCaptureMeta(meta: PageCaptureMeta): Promise<void>
 }
 
 // How long a "capturing" record is trusted before being treated as
-// orphaned — generous compared to the ~30-90s a real 4-device capture
-// takes, but short enough to recover promptly. A cancelled or genuinely
-// dropped-connection capture already gets marked "cancelled"/"failed"
-// immediately by the API route itself (see api/capture/route.ts); this
-// timeout only ever fires for the case that can't self-report at all — the
-// server *process* being killed/restarted mid-capture, which leaves the
-// last-written "capturing" record on disk with nothing left running behind
-// it, no error handler ever gets to run, and it would otherwise show as
-// perpetually "capturing" forever.
-const STALE_CAPTURE_MS = 5 * 60 * 1000;
+// orphaned — generous compared to capture.ts's own 3-minute hard ceiling on
+// a single capture, but short enough to recover promptly. A cancelled or
+// genuinely dropped-connection capture already gets marked
+// "cancelled"/"failed" immediately by the API route itself (see
+// api/capture/route.ts); this timeout only ever fires for the case that
+// can't self-report at all — the server *process* being killed/restarted
+// mid-capture, which leaves the last-written "capturing" record on disk
+// with nothing left running behind it, no error handler ever gets to run,
+// and it would otherwise show as perpetually "capturing" forever.
+const STALE_CAPTURING_MS = 5 * 60 * 1000;
+
+// A "queued" record (lib/capture/globalQueue.ts) has the same restart
+// problem — that queue is in-memory only, so a server restart orphans
+// anything still waiting in it exactly like an in-flight "capturing" record.
+// Given a longer leash than STALE_CAPTURING_MS, though: with up to 3
+// concurrent slots and each capture capped at 3 minutes, a deep-but-genuine
+// queue backlog could legitimately wait close to 10+ minutes without
+// anything actually being wrong.
+const STALE_QUEUED_MS = 15 * 60 * 1000;
 
 function isStaleCapture(meta: PageCaptureMeta): boolean {
-  return meta.status === "capturing" && Date.now() - new Date(meta.updatedAt).getTime() > STALE_CAPTURE_MS;
+  const age = Date.now() - new Date(meta.updatedAt).getTime();
+  if (meta.status === "capturing") return age > STALE_CAPTURING_MS;
+  if (meta.status === "queued") return age > STALE_QUEUED_MS;
+  return false;
 }
 
 export async function readPageCaptureMeta(projectId: string, pageSlug: string): Promise<PageCaptureMeta | null> {

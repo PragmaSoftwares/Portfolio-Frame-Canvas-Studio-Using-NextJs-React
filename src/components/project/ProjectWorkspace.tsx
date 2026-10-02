@@ -51,6 +51,12 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
   // to its next checkpoint (up to one device's capture time later).
   const [cancellingSlug, setCancellingSlug] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  // How many other captures (any project, any tab) are ahead of this one in
+  // the server's global concurrency queue (lib/capture/globalQueue.ts) —
+  // distinct from captureQueue above, which is this tab's own local
+  // ordering before a request has even been sent. Only populated while
+  // captures[slug]?.status === "queued"; cleared once it moves past that.
+  const [globalQueuePositions, setGlobalQueuePositions] = useState<Record<string, number>>({});
 
   const [newPageUrl, setNewPageUrl] = useState("");
   const [newPageLabel, setNewPageLabel] = useState("");
@@ -234,6 +240,47 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
     }
   }
 
+  // Polled while a capture is "queued" (the server's global concurrency
+  // limit — lib/capture/globalQueue.ts — was already at capacity, likely
+  // from other projects/tabs) or "capturing", since the original POST
+  // already returned without waiting for either state to finish — see
+  // api/capture/route.ts for why blocking that response instead would risk
+  // a reverse-proxy timeout. Resolves once the page reaches a terminal
+  // status (ready/failed/cancelled).
+  const POLL_INTERVAL_MS = 4000;
+
+  function clearGlobalQueuePosition(slug: string) {
+    setGlobalQueuePositions((prev) => {
+      if (!(slug in prev)) return prev;
+      const next = { ...prev };
+      delete next[slug];
+      return next;
+    });
+  }
+
+  async function pollUntilDone(slug: string): Promise<void> {
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      try {
+        const res = await fetch(
+          `/api/capture?projectId=${encodeURIComponent(project.id)}&pageSlug=${encodeURIComponent(slug)}`
+        );
+        if (!res.ok) continue; // transient — keep polling rather than giving up early.
+        const data = await res.json();
+        if (!data.capture) continue;
+        setCaptures((prev) => ({ ...prev, [slug]: data.capture }));
+        if (data.capture.status === "queued") {
+          setGlobalQueuePositions((prev) => ({ ...prev, [slug]: data.position ?? 0 }));
+        } else {
+          clearGlobalQueuePosition(slug);
+          if (data.capture.status !== "capturing") return;
+        }
+      } catch {
+        // Transient network hiccup — keep polling.
+      }
+    }
+  }
+
   async function runCapture(slug: string) {
     setCapturingSlug(slug);
     try {
@@ -250,6 +297,10 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
         setPageError(data.error ?? "This page is already being captured elsewhere.");
       } else {
         setCaptures((prev) => ({ ...prev, [slug]: data.capture }));
+        if (data.queued) {
+          setGlobalQueuePositions((prev) => ({ ...prev, [slug]: data.position ?? 0 }));
+          await pollUntilDone(slug);
+        }
       }
     } catch {
       setCaptures((prev) => ({
@@ -265,6 +316,7 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
         },
       }));
     } finally {
+      clearGlobalQueuePosition(slug);
       setCapturingSlug(null);
       setCancellingSlug((prev) => (prev === slug ? null : prev));
       router.refresh();
@@ -580,7 +632,13 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
                 capture={captures[page.slug]}
                 isCapturing={capturingSlug === page.slug}
                 isCancelling={cancellingSlug === page.slug}
-                queuePosition={captureQueue.indexOf(page.slug)}
+                queuePosition={
+                  captureQueue.includes(page.slug)
+                    ? captureQueue.indexOf(page.slug)
+                    : captures[page.slug]?.status === "queued"
+                      ? globalQueuePositions[page.slug] ?? 0
+                      : -1
+                }
                 onCapture={() => handleCaptureClick(page.slug)}
                 onCancel={() => handleCancelCapture(page.slug)}
                 onRemove={page.slug === HOME_SLUG ? undefined : () => handleRemovePage(page.slug)}
@@ -774,7 +832,19 @@ function PageRow({
   // in the queue — every other row stays fully independent, so clicking
   // Capture on one page never blocks clicking Capture on another.
   const rowBusy = isCapturing || isQueued;
-  const status = isCapturing ? "capturing" : isQueued ? "queued" : capture?.status ?? "pending";
+  // A page can be "capturing" locally (this tab sent the POST and is
+  // waiting on it) while the server itself reports it as "queued" — the
+  // global concurrency limit (lib/capture/globalQueue.ts) was already at
+  // capacity, likely from other projects/tabs, not yet actually running a
+  // browser. Prefer that over the generic "capturing" label so the
+  // distinction is visible instead of just looking stuck.
+  const status = isCapturing
+    ? capture?.status === "queued"
+      ? "queued"
+      : "capturing"
+    : isQueued
+      ? "queued"
+      : (capture?.status ?? "pending");
   const [editingUrl, setEditingUrl] = useState(false);
   const [urlDraft, setUrlDraft] = useState(page.url);
   const [savingUrl, setSavingUrl] = useState(false);
