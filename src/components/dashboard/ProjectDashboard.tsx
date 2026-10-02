@@ -7,20 +7,28 @@ import type { ProjectData } from "@/types/project";
 import { accentFor } from "@/lib/ui/cardAccent";
 import { TagPills } from "@/components/tags/TagPills";
 
+// Dashboard-only shape: each project plus how many of its approved pages
+// already have a "ready" capture (automated or manually uploaded — see
+// countCapturedPages in lib/storage/captures.ts), computed server-side in
+// page.tsx so the card can show a capture-status badge without the client
+// re-reading every page's capture meta itself.
+type ProjectWithCaptureStatus = ProjectData & { capturedPageCount: number };
+
 interface ProjectDashboardProps {
-  initialProjects: ProjectData[];
+  initialProjects: ProjectWithCaptureStatus[];
 }
 
-type SortOption = "updated" | "createdDesc" | "createdAsc" | "alpha";
+type SortOption = "updated" | "createdDesc" | "createdAsc" | "alpha" | "urlCount";
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "updated", label: "Last modified" },
   { value: "createdDesc", label: "Date added (newest)" },
   { value: "createdAsc", label: "Date added (oldest)" },
   { value: "alpha", label: "Name (A–Z)" },
+  { value: "urlCount", label: "Number of URLs" },
 ];
 
-function sortProjects(projects: ProjectData[], sortBy: SortOption): ProjectData[] {
+function sortProjects<T extends ProjectData>(projects: T[], sortBy: SortOption): T[] {
   const sorted = [...projects];
   switch (sortBy) {
     case "createdDesc":
@@ -29,10 +37,29 @@ function sortProjects(projects: ProjectData[], sortBy: SortOption): ProjectData[
       return sorted.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     case "alpha":
       return sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    case "urlCount":
+      return sorted.sort((a, b) => b.approvedPages.length - a.approvedPages.length);
     case "updated":
     default:
       return sorted.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
+}
+
+function CaptureStatusBadge({ total, captured }: { total: number; captured: number }) {
+  if (total === 0) return null;
+  const pending = total - captured;
+  if (pending === 0) {
+    return (
+      <span className="rounded-full bg-emerald-950 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+        All Captured
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-amber-950 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+      {pending} Pending Capture{pending === 1 ? "" : "s"}
+    </span>
+  );
 }
 
 function TagFilter({
@@ -282,6 +309,12 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
                   <p className="mt-0.5 text-xs text-slate-600">
                     {project.approvedPages.length} URL{project.approvedPages.length === 1 ? "" : "s"} added
                   </p>
+
+                  {project.approvedPages.length > 0 && (
+                    <div className="mt-1.5">
+                      <CaptureStatusBadge total={project.approvedPages.length} captured={project.capturedPageCount} />
+                    </div>
+                  )}
 
                   {project.tags.length > 0 && (
                     <div className="mt-2">

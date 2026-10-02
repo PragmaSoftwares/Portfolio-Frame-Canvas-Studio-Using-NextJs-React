@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.9.0] - 2026-10-02
+
+### Added
+
+- Each dashboard project card now shows a capture-status badge — "All Captured" once every added page has a ready screenshot (automated or manually uploaded), or "N Pending Capture(s)" while some are still outstanding.
+- Sort the dashboard by number of URLs added, most to least.
+
 ## [1.8.0] - 2026-09-23
 
 ### Added

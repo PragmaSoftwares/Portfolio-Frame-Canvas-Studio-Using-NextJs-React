@@ -1,4 +1,5 @@
 import { listProjects } from "@/lib/storage/projects";
+import { countCapturedPages } from "@/lib/storage/captures";
 import { ProjectDashboard } from "@/components/dashboard/ProjectDashboard";
 import { AppHeader } from "@/components/nav/AppHeader";
 import { AppFooter } from "@/components/nav/AppFooter";
@@ -14,10 +15,16 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const projects = await listProjects();
+  const projectsWithCaptureStatus = await Promise.all(
+    projects.map(async (project) => ({
+      ...project,
+      capturedPageCount: await countCapturedPages(project.id, project.approvedPages),
+    }))
+  );
   return (
     <>
       <AppHeader />
-      <ProjectDashboard initialProjects={projects} />
+      <ProjectDashboard initialProjects={projectsWithCaptureStatus} />
       <AppFooter />
     </>
   );

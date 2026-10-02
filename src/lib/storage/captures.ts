@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { projectCaptureMetaDir, assertSafeSlug, assertSafeId } from "./paths";
 import type { PageCaptureMeta } from "@/types/capture";
+import type { ApprovedPage } from "@/types/project";
 
 export async function writePageCaptureMeta(meta: PageCaptureMeta): Promise<void> {
   const dir = projectCaptureMetaDir(assertSafeId(meta.projectId));
@@ -49,4 +50,18 @@ export async function readPageCaptureMeta(projectId: string, pageSlug: string): 
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
   }
+}
+
+// A page counts as "captured" once its capture meta status is "ready" —
+// same definition the capture queue UI already uses (ProjectWorkspace.tsx),
+// regardless of whether it got there via automated capture (all 4 devices)
+// or a manual upload (as few as 1 device) — both end up as the same
+// status: "ready" record, and the dashboard doesn't need to tell them apart.
+export async function countCapturedPages(projectId: string, approvedPages: ApprovedPage[]): Promise<number> {
+  let captured = 0;
+  for (const page of approvedPages) {
+    const meta = await readPageCaptureMeta(projectId, page.slug);
+    if (meta?.status === "ready") captured++;
+  }
+  return captured;
 }
