@@ -69,7 +69,24 @@ export async function startAssistedSetup(projectId: string, url: string): Promis
   const existing = sessions.get(projectId);
   if (existing) return { active: true, startedAt: existing.startedAt };
 
-  const browser = await chromium.launch({ headless: false });
+  let browser: Browser;
+  try {
+    browser = await chromium.launch({ headless: false });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // Playwright's own error text for this case (confirmed live on a
+    // headless EC2 deployment) includes both of these markers. Surfaced as
+    // a clear message instead of the raw Playwright crash, since this is a
+    // real, expected outcome on any server with no display — not a bug —
+    // and the raw error otherwise reaches the client as an empty response
+    // body (see assisted-setup/start/route.ts's try/catch for why).
+    if (message.includes("Missing X server") || message.includes("$DISPLAY")) {
+      throw new Error(
+        "Assisted Setup needs to open a real, visible browser window, but this server has no display for one to appear on (no X server/desktop). This only works on a machine with a screen — run Assisted Setup from your own computer (`npm run dev`) instead, then copy that project's consent-state.json/session-state.json files onto this server so automated capture here can reuse them. Or use manual screenshot upload for pages this affects."
+      );
+    }
+    throw err;
+  }
   const context = await browser.newContext({
     locale: "en-US",
     timezoneId: "America/New_York",

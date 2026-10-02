@@ -33,6 +33,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // No/invalid JSON body — fall back to mainUrl, not an error.
   }
 
-  const status = await startAssistedSetup(id, url);
-  return NextResponse.json({ status });
+  try {
+    const status = await startAssistedSetup(id, url);
+    return NextResponse.json({ status });
+  } catch (err) {
+    // Without this, a thrown error here (e.g. no display available to open
+    // a real browser window on) would reach the client as an empty/opaque
+    // response body, which fails with a confusing "Unexpected end of JSON
+    // input" when the client does res.json() — instead of the actual
+    // friendly message startAssistedSetup already prepared.
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Could not open the browser window." },
+      { status: 500 }
+    );
+  }
 }

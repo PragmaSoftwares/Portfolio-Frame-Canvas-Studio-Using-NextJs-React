@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.9.1] - 2026-10-02
+
+### Fixed
+
+- Assisted Setup now shows a clear explanation ("this server has no display for a real browser window to open on") instead of a confusing "Unexpected end of JSON input" error when run on a server with no display available (e.g. a headless cloud deployment).
+
 ## [1.9.0] - 2026-10-02
 
 ### Added
