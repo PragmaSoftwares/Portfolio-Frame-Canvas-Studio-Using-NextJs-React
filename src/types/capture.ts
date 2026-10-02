@@ -24,6 +24,13 @@ export interface PageCaptureMeta {
   error?: string;
   createdAt: string;
   updatedAt: string;
+  // Consecutive automated-capture failures in a row for this page — reset to
+  // 0 by any "ready" result (automated or manual upload), left untouched by
+  // a "cancelled" result (the user stopped it; the capture path itself
+  // didn't actually fail), and incremented by each "failed" one. Lets the UI
+  // suggest manual upload once retrying automatically clearly isn't working,
+  // without nagging after a single transient failure.
+  consecutiveFailures?: number;
   images?: {
     desktop?: DeviceCaptureFiles;
     laptop?: DeviceCaptureFiles;

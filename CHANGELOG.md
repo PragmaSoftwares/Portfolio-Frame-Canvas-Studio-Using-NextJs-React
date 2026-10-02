@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.10.0] - 2026-10-02
+
+### Added
+
+- A page that's failed to capture 3 times in a row now shows a suggestion to try manual screenshot upload instead, alongside the usual error message. Clears automatically as soon as that page captures successfully (automated or manual).
+
 ## [1.9.2] - 2026-10-02
 
 ### Fixed

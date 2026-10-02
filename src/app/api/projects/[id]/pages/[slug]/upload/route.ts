@@ -113,6 +113,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       ...existing?.images,
       [device]: { fullPage: filename, uploaded: true },
     },
+    // A manual upload fixes the page same as a successful automated
+    // capture would — don't keep suggesting manual upload for a page that
+    // now has one.
+    consecutiveFailures: 0,
   };
   await writePageCaptureMeta(updatedMeta);
   await touchProject(projectId);

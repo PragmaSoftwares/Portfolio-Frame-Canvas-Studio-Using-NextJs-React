@@ -872,6 +872,12 @@ function PageRow({
         {(status === "failed" || status === "cancelled") && capture?.error && (
           <p className="mt-1 text-xs text-red-400">{capture.error}</p>
         )}
+        {status === "failed" && (capture?.consecutiveFailures ?? 0) >= 3 && (
+          <p className="mt-1 text-xs text-amber-400">
+            This has failed {capture!.consecutiveFailures} times in a row. You can keep retrying automatically, but
+            manual screenshot upload is likely more reliable for this page.
+          </p>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-3">

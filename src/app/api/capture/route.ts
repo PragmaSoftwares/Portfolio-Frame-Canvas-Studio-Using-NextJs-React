@@ -12,7 +12,7 @@ import {
   type CaptureDevice,
 } from "@/lib/storage/paths";
 import { readProject, touchProject } from "@/lib/storage/projects";
-import { writePageCaptureMeta } from "@/lib/storage/captures";
+import { writePageCaptureMeta, readPageCaptureMeta } from "@/lib/storage/captures";
 import { registerCapture, unregisterCapture } from "@/lib/capture/cancelRegistry";
 import type { PageCaptureMeta, DeviceCaptureFiles } from "@/types/capture";
 
@@ -88,6 +88,11 @@ export async function POST(request: Request) {
     );
   }
 
+  // Carried through regardless of this run's outcome — the "capturing"
+  // record below doesn't change it either way, only a "ready" or "failed"
+  // result does (see below).
+  const previousFailures = (await readPageCaptureMeta(projectId, pageSlug))?.consecutiveFailures ?? 0;
+
   const now = new Date().toISOString();
   const baseMeta: PageCaptureMeta = {
     projectId,
@@ -96,6 +101,7 @@ export async function POST(request: Request) {
     status: "capturing",
     createdAt: now,
     updatedAt: now,
+    consecutiveFailures: previousFailures,
   };
   await writePageCaptureMeta(baseMeta);
 
@@ -141,6 +147,7 @@ export async function POST(request: Request) {
       status: "ready",
       updatedAt: new Date().toISOString(),
       images: { desktop, laptop, tablet, mobile },
+      consecutiveFailures: 0,
     };
     await writePageCaptureMeta(readyMeta);
     await touchProject(projectId);
@@ -156,6 +163,9 @@ export async function POST(request: Request) {
       status: cancelled ? "cancelled" : "failed",
       error: message,
       updatedAt: new Date().toISOString(),
+      // A cancellation is the user stopping it deliberately, not the capture
+      // path itself failing — doesn't count towards the streak either way.
+      consecutiveFailures: cancelled ? previousFailures : previousFailures + 1,
     };
     await writePageCaptureMeta(finishedMeta);
     if (!cancelled) console.error("Capture failed:", err);
