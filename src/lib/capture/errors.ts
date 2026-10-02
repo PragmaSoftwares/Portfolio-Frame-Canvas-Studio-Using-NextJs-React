@@ -4,6 +4,7 @@ export type CaptureErrorReason =
   | "blocked"
   | "redirected"
   | "cancelled"
+  | "stuck"
   | "unknown";
 
 export class CaptureError extends Error {
@@ -22,6 +23,7 @@ const FRIENDLY_MESSAGES: Record<CaptureErrorReason, string> = {
   blocked: "The website blocked the automated browser from loading the page.",
   redirected: "The page redirected to a different domain than the one requested.",
   cancelled: "Capture was cancelled.",
+  stuck: "This page got stuck mid-capture (often heavy animation or scripts pinning the browser) and was automatically stopped after running too long. Try again, or use manual screenshot upload for this page instead.",
   unknown: "Something went wrong while capturing this website.",
 };
 

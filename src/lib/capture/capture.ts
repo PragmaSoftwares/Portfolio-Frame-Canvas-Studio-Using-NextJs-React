@@ -347,6 +347,25 @@ async function captureDevice(
  * this Next.js version (only the Edge runtime's ctx exposes one at all),
  * so a separate explicit Cancel request is what actually reaches this.
  */
+// Hard ceiling on the whole 4-device run, independent of the page's own JS.
+// Several of preparePage's waits (the scroll-through loop, the passive
+// presence signal, the lazy-image Promise.race) run inside page.evaluate(),
+// which Playwright never applies its own timeout to — it just waits for
+// whatever promise the in-page JS returns. If a site's own script pins its
+// render thread hard enough (heavy continuous animation, a runaway loop,
+// anything that never yields back to that page's event loop), even an
+// in-page setTimeout never fires, so page.evaluate() wait forever — no
+// amount of `timeout` options passed to other calls helps, since this hang
+// never reaches them. Confirmed live: a site like this pegs Chromium at
+// ~100% CPU indefinitely, the capture promise never settles, and every
+// consequence of that cascades — the API route's `finally` never runs, so
+// the in-memory capture lock (cancelRegistry.ts) is held forever and every
+// Retry gets "already being captured" permanently, even once the 5-minute
+// stale-capture self-heal (lib/storage/captures.ts) has already rewritten
+// the saved status to "failed" — that only fixes what's on disk, not the
+// real backend process still running (and still burning CPU) behind it.
+const MAX_CAPTURE_MS = 3 * 60 * 1000;
+
 export async function captureAllDevices(
   url: string,
   storageStatePath?: string,
@@ -371,7 +390,7 @@ export async function captureAllDevices(
     if (signal?.aborted) throw new CaptureError("cancelled", "Capture was cancelled.");
   };
 
-  try {
+  const run = async (): Promise<CaptureAllResult> => {
     checkCancelled();
     const desktop = await captureDevice(context, url, DESKTOP_VIEWPORT, sessionStorageEntries);
     checkCancelled();
@@ -381,7 +400,38 @@ export async function captureAllDevices(
     checkCancelled();
     const mobile = await captureDevice(context, url, MOBILE_VIEWPORT, sessionStorageEntries);
     return { desktop, laptop, tablet, mobile };
+  };
+
+  // Settles `run()`'s race immediately (synchronously, ahead of whatever
+  // messy "Target closed" error the actually-stuck Playwright call throws a
+  // moment later) with a clean, specific CaptureError, for either an
+  // explicit Cancel click or the hard ceiling above firing. Both force-close
+  // the context — that's what actually frees a wedged renderer; checkCancelled()
+  // alone only takes effect *between* devices, which never helps once a
+  // single device's own page is the thing stuck.
+  let settleEarly: ((err: CaptureError) => void) | undefined;
+  const earlyExit = new Promise<never>((_, reject) => {
+    settleEarly = reject;
+  });
+
+  const onAbort = () => {
+    settleEarly?.(new CaptureError("cancelled", "Capture was cancelled."));
+    context.close().catch(() => {});
+  };
+  signal?.addEventListener("abort", onAbort);
+
+  const timeoutHandle = setTimeout(() => {
+    settleEarly?.(
+      new CaptureError("stuck", "This page took far longer than expected and was stopped automatically.")
+    );
+    context.close().catch(() => {});
+  }, MAX_CAPTURE_MS);
+
+  try {
+    return await Promise.race([run(), earlyExit]);
   } finally {
-    await context.close();
+    clearTimeout(timeoutHandle);
+    signal?.removeEventListener("abort", onAbort);
+    await context.close().catch(() => {});
   }
 }

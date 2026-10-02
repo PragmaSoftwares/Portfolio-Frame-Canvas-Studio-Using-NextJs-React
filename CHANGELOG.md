@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.9.2] - 2026-10-02
+
+### Fixed
+
+- A capture that got stuck mid-page (e.g. a site whose own scripts peg the browser's render thread) is now automatically stopped after a few minutes instead of hanging indefinitely — it previously held the page's "being captured" lock forever, permanently blocking Retry, and left the underlying browser process running at full CPU with no way to clear it short of restarting the server.
+
 ## [1.9.1] - 2026-10-02
 
 ### Fixed
