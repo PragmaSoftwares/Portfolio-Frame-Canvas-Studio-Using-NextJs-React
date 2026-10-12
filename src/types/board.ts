@@ -5,7 +5,7 @@ export type BuiltinFrameVariant = "desktop" | "laptop" | "tablet" | "mobile";
 
 export type FrameVariant = BuiltinFrameVariant | "none" | "custom";
 
-export type BoardBackground = "dark" | "light" | "image";
+export type BoardBackground = "dark" | "light" | "image" | "color";
 
 /** How an uploaded background image fills the canvas when it doesn't match the canvas's own aspect ratio. */
 export type BackgroundFit = "cover" | "repeat" | "stretch";
@@ -126,6 +126,8 @@ export interface Board {
   // Only meaningful when background === "image".
   backgroundImageId?: string;
   backgroundFit?: BackgroundFit;
+  // Only meaningful when background === "color".
+  backgroundColorHex?: string;
   items: CanvasItem[];
   createdAt: string;
   updatedAt: string;

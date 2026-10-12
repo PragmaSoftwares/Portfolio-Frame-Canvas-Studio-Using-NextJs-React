@@ -1,3 +1,5 @@
+import { CHROMIUM_NOT_INSTALLED_FOR_CAPTURE_MESSAGE } from "./browser";
+
 export type CaptureErrorReason =
   | "unavailable"
   | "timeout"
@@ -5,6 +7,7 @@ export type CaptureErrorReason =
   | "redirected"
   | "cancelled"
   | "stuck"
+  | "no-browser"
   | "unknown";
 
 export class CaptureError extends Error {
@@ -24,6 +27,7 @@ const FRIENDLY_MESSAGES: Record<CaptureErrorReason, string> = {
   redirected: "The page redirected to a different domain than the one requested.",
   cancelled: "Capture was cancelled.",
   stuck: "This page got stuck mid-capture (often heavy animation or scripts pinning the browser) and was automatically stopped after running too long. Try again, or use manual screenshot upload for this page instead.",
+  "no-browser": CHROMIUM_NOT_INSTALLED_FOR_CAPTURE_MESSAGE,
   unknown: "Something went wrong while capturing this website.",
 };
 

@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import { chromium, type Browser, type BrowserContext } from "playwright";
 import { projectConsentStatePath, projectSessionStatePath } from "../storage/paths";
+import { isChromiumInstalled, CHROMIUM_NOT_INSTALLED_FOR_CAPTURE_MESSAGE } from "./browser";
 
 /**
  * A one-time, real (visible, not headless) browser session the user
@@ -68,6 +69,10 @@ async function cleanupSession(projectId: string): Promise<void> {
 export async function startAssistedSetup(projectId: string, url: string): Promise<AssistedSetupStatus> {
   const existing = sessions.get(projectId);
   if (existing) return { active: true, startedAt: existing.startedAt };
+
+  if (!isChromiumInstalled()) {
+    throw new Error(CHROMIUM_NOT_INSTALLED_FOR_CAPTURE_MESSAGE);
+  }
 
   let browser: Browser;
   try {

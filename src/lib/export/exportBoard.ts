@@ -1,4 +1,4 @@
-import { getBrowser } from "@/lib/capture/browser";
+import { getBrowser, isChromiumInstalled, CHROMIUM_NOT_INSTALLED_MESSAGE } from "@/lib/capture/browser";
 import { BOARD_WIDTH, BOARD_HEIGHT, EXPORT_SCALE_FACTOR } from "@/components/board/BoardCanvas";
 
 export { EXPORT_SCALE_FACTOR };
@@ -28,6 +28,9 @@ export async function exportBoardToPng(
   renderUrl: string,
   dimensions: ExportDimensions = { width: BOARD_WIDTH, height: BOARD_HEIGHT }
 ): Promise<Buffer> {
+  if (!isChromiumInstalled()) {
+    throw new ExportError(CHROMIUM_NOT_INSTALLED_MESSAGE);
+  }
   const browser = await getBrowser();
   const context = await browser.newContext({
     viewport: dimensions,

@@ -71,6 +71,7 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
       background={board.background}
       backgroundImageUrl={backgroundImageUrl}
       backgroundFit={board.backgroundFit}
+      backgroundColorHex={board.backgroundColorHex}
       watermarkEnabled={settings.defaultWatermarkVisible}
       watermarkText={settings.defaultWatermarkText}
       watermarkColor={settings.watermarkColor}

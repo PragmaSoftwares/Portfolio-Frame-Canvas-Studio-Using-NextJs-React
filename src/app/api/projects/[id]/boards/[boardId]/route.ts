@@ -183,8 +183,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if ("background" in record) {
-    if (record.background !== "dark" && record.background !== "light" && record.background !== "image") {
-      return NextResponse.json({ error: 'background must be "dark", "light", or "image".' }, { status: 400 });
+    if (
+      record.background !== "dark" &&
+      record.background !== "light" &&
+      record.background !== "image" &&
+      record.background !== "color"
+    ) {
+      return NextResponse.json({ error: 'background must be "dark", "light", "image", or "color".' }, { status: 400 });
     }
     patch.background = record.background;
   }
@@ -210,11 +215,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     patch.backgroundFit = record.backgroundFit as BackgroundFit;
   }
 
+  if ("backgroundColorHex" in record) {
+    if (record.backgroundColorHex === null) {
+      patch.backgroundColorHex = null;
+    } else if (typeof record.backgroundColorHex === "string" && HEX_COLOR_PATTERN.test(record.backgroundColorHex)) {
+      patch.backgroundColorHex = record.backgroundColorHex;
+    } else {
+      return NextResponse.json({ error: "backgroundColorHex must be a 6-digit hex color." }, { status: 400 });
+    }
+  }
+
   const resolvedBackground = patch.background ?? existing.background;
   if (resolvedBackground === "image") {
     const resolvedImageId = patch.backgroundImageId === null ? undefined : (patch.backgroundImageId ?? existing.backgroundImageId);
     if (!resolvedImageId) {
       return NextResponse.json({ error: "An image background needs a backgroundImageId." }, { status: 400 });
+    }
+  }
+  if (resolvedBackground === "color") {
+    const resolvedColor = patch.backgroundColorHex === null ? undefined : (patch.backgroundColorHex ?? existing.backgroundColorHex);
+    if (!resolvedColor) {
+      return NextResponse.json({ error: "A color background needs a backgroundColorHex." }, { status: 400 });
     }
   }
 

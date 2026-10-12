@@ -26,6 +26,7 @@ interface BoardCanvasProps {
   background?: BoardBackground;
   backgroundImageUrl?: string | null;
   backgroundFit?: BackgroundFit;
+  backgroundColorHex?: string;
   watermarkEnabled?: boolean;
   watermarkText?: string;
   watermarkColor?: string;
@@ -57,8 +58,12 @@ export function backgroundStyleFor(
   backgroundImageUrl: string | null | undefined,
   backgroundFit: BackgroundFit,
   imageNaturalSize?: { width: number; height: number },
-  tileScale = 1
+  tileScale = 1,
+  backgroundColorHex?: string
 ): CSSProperties {
+  if (background === "color" && backgroundColorHex) {
+    return { background: backgroundColorHex };
+  }
   if (background === "image" && backgroundImageUrl) {
     if (backgroundFit === "repeat") {
       const backgroundSize = imageNaturalSize
@@ -78,7 +83,8 @@ export function backgroundStyleFor(
     };
   }
   // Falls back to the dark gradient for an "image" background whose file is
-  // missing (e.g. deleted from the library) — never a blank/broken canvas.
+  // missing (e.g. deleted from the library), or a "color" background with no
+  // hex saved — never a blank/broken canvas.
   return { background: background === "light" ? LIGHT_BACKGROUND : DARK_BACKGROUND };
 }
 
@@ -233,6 +239,7 @@ export function BoardCanvas({
   background = "dark",
   backgroundImageUrl,
   backgroundFit = "cover",
+  backgroundColorHex,
   watermarkEnabled = false,
   watermarkText = "SAMPLE",
   watermarkColor = "#94a3b8",
@@ -250,7 +257,7 @@ export function BoardCanvas({
         height,
         position: "relative",
         overflow: "hidden",
-        ...backgroundStyleFor(background, backgroundImageUrl, backgroundFit),
+        ...backgroundStyleFor(background, backgroundImageUrl, backgroundFit, undefined, 1, backgroundColorHex),
         fontFamily:
           "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
       }}

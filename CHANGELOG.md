@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.12.0] - 2026-10-12
+
+### Added
+
+- A plain color background option for boards, alongside the existing Dark/Light choices — type a hex code directly, or use the swatch to open your browser's own color picker.
+- Search box on the dashboard — filter projects instantly by name or URL as you type.
+- The dashboard now detects whether Chromium is installed and shows clear setup instructions instead of letting capture, Assisted Setup, or board export fail with a raw error; capture and Assisted Setup's error messages also point to manual screenshot upload as a working alternative in the meantime.
+
 ## [1.11.0] - 2026-10-02
 
 ### Added

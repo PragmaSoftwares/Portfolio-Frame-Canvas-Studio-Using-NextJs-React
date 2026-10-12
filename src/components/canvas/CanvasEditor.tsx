@@ -261,6 +261,13 @@ export function CanvasEditor({
   const [background, setBackground] = useState<BoardBackground>(initialBoard.background);
   const [backgroundImageId, setBackgroundImageId] = useState<string | undefined>(initialBoard.backgroundImageId);
   const [backgroundFit, setBackgroundFit] = useState<BackgroundFit>(initialBoard.backgroundFit ?? "cover");
+  const [backgroundColorHex, setBackgroundColorHex] = useState<string>(initialBoard.backgroundColorHex ?? "#2d2d2d");
+  // The hex text field's own draft value (just the 6 digits, no "#") — kept
+  // separate from backgroundColorHex so a half-typed value (e.g. "ff6") can
+  // sit in the field without being treated as a real color change yet; only
+  // committed (and only then does it flip background to "color") once it's
+  // a complete 6-digit hex.
+  const [hexInputValue, setHexInputValue] = useState<string>((initialBoard.backgroundColorHex ?? "#2d2d2d").slice(1));
   const [backgroundImages, setBackgroundImages] = useState<BackgroundImage[]>(initialBackgroundImages);
   const [uploadingBackground, setUploadingBackground] = useState(false);
   const [customFrames, setCustomFrames] = useState<CustomFrame[]>(initialCustomFrames);
@@ -775,6 +782,7 @@ export function CanvasEditor({
         background,
         backgroundImageId: background === "image" ? (backgroundImageId ?? null) : null,
         backgroundFit: background === "image" ? backgroundFit : "cover",
+        backgroundColorHex: background === "color" ? backgroundColorHex : null,
         items,
       };
 
@@ -888,6 +896,58 @@ export function CanvasEditor({
             >
               Light
             </button>
+            <div
+              className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs ${background === "color" ? "border-indigo-500 text-indigo-300" : "border-slate-700 text-slate-400"}`}
+            >
+              {/* The swatch is just a convenience launcher for the native
+                  color picker — the hex field below is the primary, always-
+                  visible way to set an exact value, since the native
+                  picker's own UI (RGB sliders, etc.) isn't something a page
+                  can control or default to hex. */}
+              <label className="flex cursor-pointer items-center">
+                <span
+                  aria-hidden
+                  className="h-3.5 w-3.5 rounded-full border border-slate-500"
+                  style={{ background: backgroundColorHex }}
+                />
+                <input
+                  type="color"
+                  value={backgroundColorHex}
+                  onChange={(e) => {
+                    setBackgroundColorHex(e.target.value);
+                    setHexInputValue(e.target.value.slice(1));
+                    setBackground("color");
+                    markDirty();
+                  }}
+                  className="sr-only"
+                />
+              </label>
+              <span className="text-slate-500">#</span>
+              <input
+                type="text"
+                value={hexInputValue}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
+                  setHexInputValue(digits);
+                  if (digits.length === 6) {
+                    setBackgroundColorHex(`#${digits}`);
+                    setBackground("color");
+                    markDirty();
+                  }
+                }}
+                onBlur={() => {
+                  // An incomplete hex (e.g. "ff6") never got committed to
+                  // backgroundColorHex — snap the field back to whatever the
+                  // last valid value actually was, instead of leaving a
+                  // half-typed value sitting there unexplained.
+                  setHexInputValue(backgroundColorHex.slice(1));
+                }}
+                maxLength={6}
+                spellCheck={false}
+                placeholder="2d2d2d"
+                className="w-14 bg-transparent font-mono outline-none placeholder:text-slate-600"
+              />
+            </div>
           </div>
           <button
             onClick={handleSave}
@@ -1189,7 +1249,8 @@ export function CanvasEditor({
                 canvasBackgroundImageUrl,
                 backgroundFit,
                 selectedBackgroundImage ? { width: selectedBackgroundImage.width, height: selectedBackgroundImage.height } : undefined,
-                EDITOR_SCALE
+                EDITOR_SCALE,
+                backgroundColorHex
               ),
               boxShadow: "0 0 0 1px rgba(148,163,184,0.25), 0 30px 60px -20px rgba(0,0,0,0.6)",
               overflow: "hidden",

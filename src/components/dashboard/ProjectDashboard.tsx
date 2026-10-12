@@ -16,6 +16,7 @@ type ProjectWithCaptureStatus = ProjectData & { capturedPageCount: number };
 
 interface ProjectDashboardProps {
   initialProjects: ProjectWithCaptureStatus[];
+  chromiumInstalled: boolean;
 }
 
 type SortOption = "updated" | "createdDesc" | "createdAsc" | "alpha" | "urlCount";
@@ -134,13 +135,14 @@ function TagFilter({
   );
 }
 
-export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
+export function ProjectDashboard({ initialProjects, chromiumInstalled }: ProjectDashboardProps) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("updated");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const allTags = useMemo(
@@ -149,12 +151,20 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
   );
 
   const visibleProjects = useMemo(() => {
-    const filtered =
+    let filtered =
       selectedTags.length === 0
         ? initialProjects
         : initialProjects.filter((p) => p.tags.some((t) => selectedTags.includes(t)));
+
+    const query = searchQuery.trim().toLowerCase();
+    if (query.length > 0) {
+      filtered = filtered.filter(
+        (p) => p.name.toLowerCase().includes(query) || p.mainUrl.toLowerCase().includes(query)
+      );
+    }
+
     return sortProjects(filtered, sortBy);
-  }, [initialProjects, selectedTags, sortBy]);
+  }, [initialProjects, selectedTags, searchQuery, sortBy]);
 
   async function handleRename(id: string) {
     if (renameValue.trim().length === 0) return;
@@ -229,27 +239,67 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
           </p>
         </header>
 
+        {!chromiumInstalled && (
+          <div className="rounded-xl border border-amber-800 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
+            Chromium isn&apos;t installed on this server, so automated capture, Assisted Setup, and board export
+            won&apos;t work yet. Run <code className="rounded bg-black/30 px-1 py-0.5">npx playwright install chromium</code>,
+            then restart the app. In the meantime, every project can still use manual screenshot upload instead.
+          </div>
+        )}
+
         {error && (
           <div className="rounded-xl border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">{error}</div>
         )}
 
         {initialProjects.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-xs text-slate-400">
-              Sort by
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500"
+            <div className="relative">
+              <svg
+                aria-hidden
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500"
               >
-                {SORT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <TagFilter allTags={allTags} selected={selectedTags} onChange={setSelectedTags} />
+                <circle cx="8.5" cy="8.5" r="5.5" />
+                <path d="M16 16l-3.8-3.8" strokeLinecap="round" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name or URL…"
+                className="w-56 rounded-lg border border-slate-700 bg-slate-900 py-1.5 pl-8 pr-7 text-xs text-slate-200 outline-none placeholder:text-slate-500 focus:border-indigo-500"
+              />
+              {searchQuery.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  title="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-slate-400">
+                Sort by
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500"
+                >
+                  {SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <TagFilter allTags={allTags} selected={selectedTags} onChange={setSelectedTags} />
+            </div>
           </div>
         )}
 
@@ -259,7 +309,7 @@ export function ProjectDashboard({ initialProjects }: ProjectDashboardProps) {
           </div>
         ) : visibleProjects.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 px-6 py-16 text-center text-sm text-slate-500">
-            No projects match the selected tags.
+            {searchQuery.trim().length > 0 ? "No projects match your search." : "No projects match the selected tags."}
           </div>
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2">

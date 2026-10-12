@@ -20,4 +20,5 @@ export interface LastUsedBackground {
   background: BoardBackground;
   backgroundImageId?: string;
   backgroundFit?: BackgroundFit;
+  backgroundColorHex?: string;
 }

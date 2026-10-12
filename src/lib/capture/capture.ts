@@ -1,5 +1,5 @@
 import type { BrowserContext, Page } from "playwright";
-import { getBrowser } from "./browser";
+import { getBrowser, isChromiumInstalled, CHROMIUM_NOT_INSTALLED_MESSAGE } from "./browser";
 import { CaptureError } from "./errors";
 
 export interface Viewport {
@@ -372,6 +372,9 @@ export async function captureAllDevices(
   sessionStorageEntries?: Record<string, string>,
   signal?: AbortSignal
 ): Promise<CaptureAllResult> {
+  if (!isChromiumInstalled()) {
+    throw new CaptureError("no-browser", CHROMIUM_NOT_INSTALLED_MESSAGE);
+  }
   const browser = await getBrowser();
   const context = await browser.newContext({
     locale: "en-US",

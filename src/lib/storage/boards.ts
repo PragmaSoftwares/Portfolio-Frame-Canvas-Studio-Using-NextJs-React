@@ -100,6 +100,7 @@ async function defaultBoardShape(projectId: string, name: string): Promise<Board
     background: lastUsed?.background ?? "dark",
     backgroundImageId: lastUsed?.background === "image" ? lastUsed.backgroundImageId : undefined,
     backgroundFit: lastUsed?.background === "image" ? lastUsed.backgroundFit : undefined,
+    backgroundColorHex: lastUsed?.background === "color" ? lastUsed.backgroundColorHex : undefined,
     items: [],
     createdAt: now,
     updatedAt: now,
@@ -150,6 +151,7 @@ export interface BoardPatch {
   background?: BoardBackground;
   backgroundImageId?: string | null;
   backgroundFit?: BackgroundFit;
+  backgroundColorHex?: string | null;
   items?: CanvasItem[];
 }
 
@@ -160,18 +162,26 @@ export async function updateBoard(projectId: string, boardId: string, patch: Boa
     ...existing,
     ...patch,
     backgroundImageId: patch.backgroundImageId === null ? undefined : (patch.backgroundImageId ?? existing.backgroundImageId),
+    backgroundColorHex: patch.backgroundColorHex === null ? undefined : (patch.backgroundColorHex ?? existing.backgroundColorHex),
     updatedAt: new Date().toISOString(),
   };
   await writeBoard(updated);
 
   // Track "last used" whenever any background-related field changed, not just
-  // `background` itself — e.g. picking a different image or fit while already
-  // in "image" mode should still update what the next new board defaults to.
-  if (patch.background !== undefined || patch.backgroundImageId !== undefined || patch.backgroundFit !== undefined) {
+  // `background` itself — e.g. picking a different image/fit/color while
+  // already in that mode should still update what the next new board
+  // defaults to.
+  if (
+    patch.background !== undefined ||
+    patch.backgroundImageId !== undefined ||
+    patch.backgroundFit !== undefined ||
+    patch.backgroundColorHex !== undefined
+  ) {
     await setLastUsedBackground({
       background: updated.background,
       backgroundImageId: updated.background === "image" ? updated.backgroundImageId : undefined,
       backgroundFit: updated.background === "image" ? updated.backgroundFit : undefined,
+      backgroundColorHex: updated.background === "color" ? updated.backgroundColorHex : undefined,
     });
   }
 

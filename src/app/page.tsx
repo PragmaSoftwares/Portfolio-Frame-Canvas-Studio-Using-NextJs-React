@@ -1,5 +1,6 @@
 import { listProjects } from "@/lib/storage/projects";
 import { countCapturedPages } from "@/lib/storage/captures";
+import { isChromiumInstalled } from "@/lib/capture/browser";
 import { ProjectDashboard } from "@/components/dashboard/ProjectDashboard";
 import { AppHeader } from "@/components/nav/AppHeader";
 import { AppFooter } from "@/components/nav/AppFooter";
@@ -24,7 +25,7 @@ export default async function Home() {
   return (
     <>
       <AppHeader />
-      <ProjectDashboard initialProjects={projectsWithCaptureStatus} />
+      <ProjectDashboard initialProjects={projectsWithCaptureStatus} chromiumInstalled={isChromiumInstalled()} />
       <AppFooter />
     </>
   );
