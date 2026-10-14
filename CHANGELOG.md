@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.13.0] - 2026-10-14
+
+### Added
+
+- Set a board's canvas size in pixels (200–4000 per side) from the editor header, with a shape dropdown (4:3, 3:4, 1:1, 16:9, 9:16, 4:5, 6:7) that keeps your width and recalculates the height. Changes only take effect when you click **Apply**, so items already on the canvas aren't disturbed while you type. The size is saved with the board and used for export.
+
+### Changed
+
+- New boards now default to 3000 × 3500 (6:7 portrait). Existing boards keep their saved size.
+- The board editor page now scrolls as a whole with the browser's own scrollbar instead of the canvas area having its own vertical scrollbar, and the empty dark strips above and below the canvas are gone. The side panels stay in view while you scroll.
+
 ## [1.12.0] - 2026-10-12
 
 ### Added

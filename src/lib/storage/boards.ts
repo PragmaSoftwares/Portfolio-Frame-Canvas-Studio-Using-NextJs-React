@@ -5,11 +5,9 @@ import { getLastUsedBackground, setLastUsedBackground } from "./backgroundImages
 import { listProjects } from "./projects";
 import type { Board, BoardBackground, BackgroundFit, CanvasItem } from "@/types/board";
 
-// Matches Upwork's own recommended portfolio image size (4:3, scaled up for
-// export quality) per docs/mockups-examples/Upwork_Portfolio_Design_Brief.md —
-// "Recommended Dimensions: 1000 x 750 pixels, Aspect Ratio: 4:3".
-const DEFAULT_CANVAS_WIDTH = 2000;
-const DEFAULT_CANVAS_HEIGHT = 1500;
+// Default 6:7 portrait canvas; users can change it per board in the editor.
+const DEFAULT_CANVAS_WIDTH = 3000;
+const DEFAULT_CANVAS_HEIGHT = 3500;
 
 function boardPath(projectId: string, boardId: string): string {
   return path.join(projectBoardsDir(assertSafeId(projectId)), `${assertSafeId(boardId)}.json`);
@@ -148,6 +146,8 @@ export async function duplicateBoard(projectId: string, boardId: string): Promis
 
 export interface BoardPatch {
   name?: string;
+  canvasWidth?: number;
+  canvasHeight?: number;
   background?: BoardBackground;
   backgroundImageId?: string | null;
   backgroundFit?: BackgroundFit;

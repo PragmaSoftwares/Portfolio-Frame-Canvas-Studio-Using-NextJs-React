@@ -5,6 +5,7 @@ import { readBackgroundImage } from "@/lib/storage/backgroundImages";
 import { listCustomFrames } from "@/lib/storage/customFrames";
 import type { BackgroundFit, CanvasItem, FrameVariant, TextAlign, TextTransform, VerticalAlign } from "@/types/board";
 import type { CropFit } from "@/types/review";
+import { MIN_CANVAS_SIZE, MAX_CANVAS_SIZE } from "@/lib/board/canvasSize";
 
 export const runtime = "nodejs";
 
@@ -180,6 +181,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Board name can't be empty." }, { status: 400 });
     }
     patch.name = record.name.trim();
+  }
+
+  for (const key of ["canvasWidth", "canvasHeight"] as const) {
+    if (!(key in record)) continue;
+    const value = record[key];
+    if (typeof value !== "number" || !Number.isInteger(value) || value < MIN_CANVAS_SIZE || value > MAX_CANVAS_SIZE) {
+      return NextResponse.json(
+        { error: `${key} must be a whole number between ${MIN_CANVAS_SIZE} and ${MAX_CANVAS_SIZE}.` },
+        { status: 400 }
+      );
+    }
+    patch[key] = value;
   }
 
   if ("background" in record) {

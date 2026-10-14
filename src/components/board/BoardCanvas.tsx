@@ -2,10 +2,9 @@ import type { CSSProperties, ReactNode } from "react";
 import type { BackgroundFit, BoardBackground } from "@/types/board";
 import { cssFontFamily } from "@/lib/fonts";
 
-// Default/master size, matching Upwork's recommended 4:3 portfolio image
-// dimensions (scaled up for export quality). Each board may override this.
-export const BOARD_WIDTH = 2000;
-export const BOARD_HEIGHT = 1500;
+// Default/master size, 6:7 portrait. Each board may override this.
+export const BOARD_WIDTH = 3000;
+export const BOARD_HEIGHT = 3500;
 
 // Output pixel-density multiplier applied on top of the CSS pixel size
 // above when exporting a board to PNG (see lib/export/exportBoard.ts) — the

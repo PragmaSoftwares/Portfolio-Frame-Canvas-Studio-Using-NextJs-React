@@ -15,6 +15,7 @@ import { DEFAULT_CROP } from "@/types/review";
 import type { CropFit } from "@/types/review";
 import { defaultFrameWidth, frameOuterHeight, defaultFrameForDevice, defaultContentFit } from "@/lib/board/frameSize";
 import { textBoxStyle, textContentStyle } from "@/lib/board/textStyle";
+import { ASPECT_PRESETS, MIN_CANVAS_SIZE, MAX_CANVAS_SIZE, clampCanvasSize, matchingPreset, heightForPreset } from "@/lib/board/canvasSize";
 import { FONT_FAMILY_NAMES, cssFontFamily } from "@/lib/fonts";
 import type {
   Board,
@@ -258,6 +259,12 @@ export function CanvasEditor({
   const [boardId, setBoardId] = useState(initialBoard.id);
   const [isNewBoard, setIsNewBoard] = useState(Boolean(initialIsNewBoard));
   const [name, setName] = useState(initialBoard.name);
+  const [canvasWidth, setCanvasWidth] = useState(initialBoard.canvasWidth);
+  const [canvasHeight, setCanvasHeight] = useState(initialBoard.canvasHeight);
+  // Draft text for the size fields, so a half-typed number (e.g. "1" on the
+  // way to "1470") isn't clamped mid-edit; committed on blur/Enter.
+  const [widthDraft, setWidthDraft] = useState(String(initialBoard.canvasWidth));
+  const [heightDraft, setHeightDraft] = useState(String(initialBoard.canvasHeight));
   const [background, setBackground] = useState<BoardBackground>(initialBoard.background);
   const [backgroundImageId, setBackgroundImageId] = useState<string | undefined>(initialBoard.backgroundImageId);
   const [backgroundFit, setBackgroundFit] = useState<BackgroundFit>(initialBoard.backgroundFit ?? "cover");
@@ -307,8 +314,8 @@ export function CanvasEditor({
   const canvasRef = useRef<HTMLDivElement>(null);
   const textRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const editorWidth = initialBoard.canvasWidth * EDITOR_SCALE;
-  const editorHeight = initialBoard.canvasHeight * EDITOR_SCALE;
+  const editorWidth = canvasWidth * EDITOR_SCALE;
+  const editorHeight = canvasHeight * EDITOR_SCALE;
   const selectionById = new Map(selections.map((s) => [s.id, s]));
   const selectedBackgroundImage = backgroundImageId ? backgroundImages.find((img) => img.id === backgroundImageId) : null;
   const pageOptions = Array.from(new Map(selections.map((s) => [s.pageSlug, s.pageLabel])).entries());
@@ -317,6 +324,28 @@ export function CanvasEditor({
   function markDirty() {
     setDirty(true);
     setExportUrl(null);
+  }
+
+  // The size fields only edit drafts; nothing on the canvas changes until
+  // Apply, so retyping a number never disturbs items already placed.
+  function parseSizeDraft(draft: string): number | null {
+    const parsed = Number(draft);
+    if (draft.trim() === "" || !Number.isFinite(parsed)) return null;
+    return clampCanvasSize(parsed);
+  }
+
+  const draftWidth = parseSizeDraft(widthDraft);
+  const draftHeight = parseSizeDraft(heightDraft);
+  const sizeChanged = draftWidth !== null && draftHeight !== null && (draftWidth !== canvasWidth || draftHeight !== canvasHeight);
+  const draftPreset = draftWidth !== null && draftHeight !== null ? matchingPreset(draftWidth, draftHeight) : null;
+
+  function applyCanvasSize() {
+    if (draftWidth === null || draftHeight === null) return;
+    setCanvasWidth(draftWidth);
+    setCanvasHeight(draftHeight);
+    setWidthDraft(String(draftWidth));
+    setHeightDraft(String(draftHeight));
+    markDirty();
   }
 
   function nextZIndex(): number {
@@ -779,6 +808,8 @@ export function CanvasEditor({
     try {
       const payload = {
         name,
+        canvasWidth,
+        canvasHeight,
         background,
         backgroundImageId: background === "image" ? (backgroundImageId ?? null) : null,
         backgroundFit: background === "image" ? backgroundFit : "cover",
@@ -849,7 +880,7 @@ export function CanvasEditor({
   const canvasBackgroundImageUrl = selectedBackgroundImage ? backgroundImageSrc(selectedBackgroundImage.filename) : null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100 lg:h-screen">
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       {/* Shown only on touch-primary devices (see .touch-notice in
           globals.css) — pure CSS, no JS/hydration risk. Precise drag/
           resize/layer composition genuinely doesn't work well on touch
@@ -877,6 +908,60 @@ export function CanvasEditor({
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-2 py-1.5 text-xs text-slate-400">
+            <input
+              type="number"
+              aria-label="Canvas width in pixels"
+              value={widthDraft}
+              min={MIN_CANVAS_SIZE}
+              max={MAX_CANVAS_SIZE}
+              onChange={(e) => setWidthDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyCanvasSize();
+              }}
+              className="w-14 bg-transparent text-slate-100 outline-none"
+            />
+            <span>×</span>
+            <input
+              type="number"
+              aria-label="Canvas height in pixels"
+              value={heightDraft}
+              min={MIN_CANVAS_SIZE}
+              max={MAX_CANVAS_SIZE}
+              onChange={(e) => setHeightDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyCanvasSize();
+              }}
+              className="w-14 bg-transparent text-slate-100 outline-none"
+            />
+            <span>px</span>
+            <select
+              aria-label="Common canvas shapes"
+              value={draftPreset?.label ?? "custom"}
+              onChange={(e) => {
+                const preset = ASPECT_PRESETS.find((p) => p.label === e.target.value);
+                if (preset && draftWidth !== null) setHeightDraft(String(heightForPreset(draftWidth, preset)));
+              }}
+              className="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-slate-100"
+            >
+              <option value="custom" disabled>
+                Custom
+              </option>
+              {ASPECT_PRESETS.map((p) => (
+                <option key={p.label} value={p.label}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={applyCanvasSize}
+              disabled={!sizeChanged}
+              className="rounded border border-indigo-500 px-2 py-0.5 text-indigo-300 hover:bg-indigo-500/10 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-600 disabled:hover:bg-transparent"
+            >
+              Apply
+            </button>
+          </div>
           <div className="flex gap-1">
             <button
               onClick={() => {
@@ -963,7 +1048,7 @@ export function CanvasEditor({
           >
             {exportPhase === "exporting"
               ? "Exporting…"
-              : `Export PNG (${initialBoard.canvasWidth * EXPORT_SCALE_FACTOR}×${initialBoard.canvasHeight * EXPORT_SCALE_FACTOR})`}
+              : `Export PNG (${canvasWidth * EXPORT_SCALE_FACTOR}×${canvasHeight * EXPORT_SCALE_FACTOR})`}
           </button>
           {exportUrl && (
             <a href={exportUrl} target="_blank" rel="noreferrer" className="text-sm text-emerald-400 underline underline-offset-4">
@@ -1150,8 +1235,8 @@ export function CanvasEditor({
         </label>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-        <aside className="w-full shrink-0 overflow-y-auto border-b border-slate-800 p-4 lg:w-72 lg:border-r lg:border-b-0">
+      <div className="flex flex-1 flex-col lg:flex-row">
+        <aside className="w-full shrink-0 overflow-y-auto border-b border-slate-800 p-4 lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:self-start lg:border-r lg:border-b-0">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Text</h2>
           <div
             draggable
@@ -1232,7 +1317,7 @@ export function CanvasEditor({
             the board itself (still its real export pixel size, unscaled)
             just scrolls within this box instead — not editable via touch,
             but contained, not broken-looking. */}
-        <main className="flex min-h-[60vh] min-w-0 flex-1 items-center justify-center overflow-auto p-8 lg:min-h-0">
+        <main className="flex min-h-[60vh] min-w-0 flex-1 items-start justify-center overflow-x-auto px-8">
           <div
             ref={canvasRef}
             onDragOver={(e) => e.preventDefault()}
@@ -1393,7 +1478,7 @@ export function CanvasEditor({
           </div>
         </main>
 
-        <aside className="w-full shrink-0 space-y-4 overflow-y-auto border-t border-slate-800 p-4 lg:w-64 lg:border-t-0 lg:border-l">
+        <aside className="w-full shrink-0 space-y-4 overflow-y-auto border-t border-slate-800 p-4 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:self-start lg:border-t-0 lg:border-l">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Selected item</h2>
           {selectedItem ? (
             <>
