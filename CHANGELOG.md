@@ -4,7 +4,18 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
-## [1.13.0] - 2026-10-14
+## [1.14.0] - 2026-10-19
+
+### Added
+
+- **Scroll videos** — a new per-project feature alongside canvas boards. Pick an ordered sequence of your cropped screenshots and export a smooth scrolling MP4: each clip scrolls down the full screenshot, then transitions into the next. Choose from fade, slide, wipe, zoom, a 3D flip, or a hard cut per transition, plus resolution, scroll speed, and framerate (defaults: 1920×1080, 450px/s, 120fps, flip transition). Rendering runs in the background through the same capture/render queue used for screenshot captures, with a live progress bar and ETA, and can be cancelled mid-render.
+- Reorder a scroll video's clip sequence by dragging — the list auto-scrolls near the top/bottom of the window while dragging, switches to a compact view, and shows a clear insertion-line indicator for where the clip will land.
+- Search box above a board's cropped-screenshot panel to filter by name as you type.
+- A magnifying-glass button on each cropped-screenshot thumbnail (board editor) opens a full-size preview, for telling two similarly-cropped screenshots apart before dragging one onto the canvas.
+
+### Fixed
+
+- Clicking Export/Re-export on a board no longer gets stuck showing "Starting…" until you refresh the page — progress now appears and updates live.
 
 ### Added
 

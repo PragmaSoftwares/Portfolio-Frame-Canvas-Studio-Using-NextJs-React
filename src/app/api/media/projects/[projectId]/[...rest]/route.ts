@@ -13,7 +13,10 @@ const CONTENT_TYPES: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",
   webp: "image/webp",
+  mp4: "video/mp4",
 };
+
+const VIDEO_FILENAME_PATTERN = /^[a-zA-Z0-9_-]+\.mp4$/;
 
 function contentTypeFor(filename: string): string {
   const extension = filename.split(".").pop() ?? "";
@@ -26,6 +29,9 @@ function resolveRelativePath(rest: string[]): string | null {
   }
   if (rest[0] === "exports" && rest.length === 2 && FILENAME_PATTERN.test(rest[1])) {
     return path.join("exports", rest[1]);
+  }
+  if (rest[0] === "videos" && rest.length === 2 && VIDEO_FILENAME_PATTERN.test(rest[1])) {
+    return path.join("videos", rest[1]);
   }
   return null;
 }

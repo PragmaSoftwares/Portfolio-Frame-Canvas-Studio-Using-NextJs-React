@@ -10,6 +10,7 @@ import { CustomDeviceFrame } from "@/components/board/CustomDeviceFrame";
 import { PlainFrame } from "@/components/board/PlainFrame";
 import { CornerPinEditor } from "./CornerPinEditor";
 import { InfoTooltip } from "@/components/ui/Tooltip";
+import { ImageZoomOverlay, ZoomButton } from "@/components/common/ImageZoomOverlay";
 import { backgroundStyleFor, WatermarkOverlay, EXPORT_SCALE_FACTOR } from "@/components/board/BoardCanvas";
 import { DEFAULT_CROP } from "@/types/review";
 import type { CropFit } from "@/types/review";
@@ -300,6 +301,8 @@ export function CanvasEditor({
   const [editingFrameError, setEditingFrameError] = useState<string | null>(null);
   const [items, setItems] = useState<CanvasItem[]>(initialBoard.items);
   const [pageFilter, setPageFilter] = useState<string>("all");
+  const [selectionSearch, setSelectionSearch] = useState("");
+  const [zoomSelectionId, setZoomSelectionId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Which text item (if any) is currently being typed into — a text item's
   // content div is only made contentEditable while its id matches this, so
@@ -319,7 +322,15 @@ export function CanvasEditor({
   const selectionById = new Map(selections.map((s) => [s.id, s]));
   const selectedBackgroundImage = backgroundImageId ? backgroundImages.find((img) => img.id === backgroundImageId) : null;
   const pageOptions = Array.from(new Map(selections.map((s) => [s.pageSlug, s.pageLabel])).entries());
-  const visibleSelections = pageFilter === "all" ? selections : selections.filter((s) => s.pageSlug === pageFilter);
+  const selectionSearchQuery = selectionSearch.trim().toLowerCase();
+  const visibleSelections = selections
+    .filter((s) => pageFilter === "all" || s.pageSlug === pageFilter)
+    .filter(
+      (s) =>
+        selectionSearchQuery.length === 0 ||
+        s.label.toLowerCase().includes(selectionSearchQuery) ||
+        s.pageLabel.toLowerCase().includes(selectionSearchQuery)
+    );
 
   function markDirty() {
     setDirty(true);
@@ -1253,6 +1264,15 @@ export function CanvasEditor({
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
             Cropped screenshots — drag onto the canvas
           </h2>
+          {selections.length > 0 && (
+            <input
+              type="text"
+              value={selectionSearch}
+              onChange={(e) => setSelectionSearch(e.target.value)}
+              placeholder="Search screenshots by name…"
+              className="mb-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs outline-none placeholder:text-slate-500 focus:border-indigo-500"
+            />
+          )}
           {pageOptions.length > 1 && (
             <select
               value={pageFilter}
@@ -1274,6 +1294,8 @@ export function CanvasEditor({
                 Go crop some →
               </Link>
             </p>
+          ) : visibleSelections.length === 0 ? (
+            <p className="text-sm text-slate-400">No screenshots match your search.</p>
           ) : (
             <div className="grid grid-cols-2 gap-3">
               {visibleSelections.map((s) => {
@@ -1286,10 +1308,11 @@ export function CanvasEditor({
                     onDragStart={(e) => {
                       e.dataTransfer.setData("application/json", JSON.stringify({ kind: "screenshot", selectionId: s.id }));
                     }}
-                    className="cursor-grab space-y-1 rounded-lg border border-slate-800 p-2 hover:border-slate-600"
+                    className="group cursor-grab space-y-1 rounded-lg border border-slate-800 p-2 hover:border-slate-600"
                     title={`${s.pageLabel} — ${s.label}`}
                   >
                     <div style={{ position: "relative", height: frameOuterHeight(frame, thumbWidth) }}>
+                      <ZoomButton onClick={() => setZoomSelectionId(s.id)} />
                       {/* frame is always one of the 4 device literals here — defaultFrameForDevice
                           derives it straight from the capture device, never "none" or "custom". */}
                       <DeviceFrame
@@ -1301,8 +1324,14 @@ export function CanvasEditor({
                         style={{ left: 0, top: 0 }}
                       />
                     </div>
-                    <p className="truncate text-[11px] text-slate-400">{s.pageLabel}</p>
-                    <p className="truncate text-[11px] text-slate-500">{s.label}</p>
+                    <p className="truncate text-[10px] text-slate-500">{s.pageLabel}</p>
+                    {/* The crop's own label is what actually distinguishes it from other
+                        crops on the same page — given 2 lines (not single-line truncate)
+                        and a title tooltip for the rest, since a single-line clip was
+                        cutting off exactly the part that tells two crops apart. */}
+                    <p className="line-clamp-2 text-[11px] leading-tight text-slate-300" title={s.label}>
+                      {s.label}
+                    </p>
                   </div>
                 );
               })}
@@ -1929,6 +1958,19 @@ export function CanvasEditor({
           onSave={handleSaveFrameEdit}
         />
       )}
+
+      {zoomSelectionId &&
+        (() => {
+          const zoomed = selections.find((s) => s.id === zoomSelectionId);
+          if (!zoomed) return null;
+          return (
+            <ImageZoomOverlay
+              src={mediaSrc(projectId, zoomed.filename)}
+              alt={`${zoomed.pageLabel} — ${zoomed.label}`}
+              onClose={() => setZoomSelectionId(null)}
+            />
+          );
+        })()}
     </div>
   );
 }

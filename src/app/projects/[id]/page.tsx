@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { readProject } from "@/lib/storage/projects";
 import { readPageCaptureMeta } from "@/lib/storage/captures";
 import { listBoards } from "@/lib/storage/boards";
+import { listScrollVideos } from "@/lib/storage/scrollVideos";
 import { listAllSelections } from "@/lib/storage/review";
 import { ProjectWorkspace } from "@/components/project/ProjectWorkspace";
 import { AppHeader } from "@/components/nav/AppHeader";
@@ -24,12 +25,19 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   }
 
   const boards = await listBoards(id);
+  const scrollVideos = await listScrollVideos(id);
   const selections = await listAllSelections(id, project.approvedPages);
 
   return (
     <>
       <AppHeader />
-      <ProjectWorkspace project={project} initialCaptures={captures} initialBoards={boards} selectionCount={selections.length} />
+      <ProjectWorkspace
+        project={project}
+        initialCaptures={captures}
+        initialBoards={boards}
+        initialScrollVideos={scrollVideos}
+        selectionCount={selections.length}
+      />
       <AppFooter />
     </>
   );

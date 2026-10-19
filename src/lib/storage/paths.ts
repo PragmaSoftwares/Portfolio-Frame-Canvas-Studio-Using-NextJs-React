@@ -38,6 +38,10 @@ export function generateBoardId(): string {
   return nanoid(12);
 }
 
+export function generateScrollVideoId(): string {
+  return nanoid(12);
+}
+
 export function generateBackgroundImageId(): string {
   return nanoid(12);
 }
@@ -92,6 +96,20 @@ export function projectExportMetaDir(id: string): string {
 
 export function projectBoardsDir(id: string): string {
   return path.join(projectDir(id), "boards");
+}
+
+// One scrolling-export video per file here: <id>.json for its metadata
+// (clip sequence, transitions, render settings, status), <id>.mp4 for the
+// rendered output once status is "ready" — same co-located
+// metadata-plus-binary layout as exports (projectExportsDir/
+// projectExportMetaDir), just without a separate meta subdirectory since
+// there's exactly one output file per record, not per-device like captures.
+export function projectScrollVideosDir(id: string): string {
+  return path.join(projectDir(id), "videos");
+}
+
+export function projectScrollVideoOutputPath(projectId: string, videoId: string): string {
+  return path.join(projectScrollVideosDir(projectId), `${assertSafeId(videoId)}.mp4`);
 }
 
 /**

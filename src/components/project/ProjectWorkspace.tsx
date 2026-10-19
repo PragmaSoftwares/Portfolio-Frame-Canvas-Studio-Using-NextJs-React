@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { ProjectData, ApprovedPage } from "@/types/project";
 import type { PageCaptureMeta } from "@/types/capture";
 import type { Board } from "@/types/board";
+import type { ScrollVideo } from "@/types/scrollVideo";
 import { accentFor } from "@/lib/ui/cardAccent";
 import { TagPicker } from "@/components/tags/TagPicker";
 import { TagPills } from "@/components/tags/TagPills";
@@ -24,10 +25,17 @@ interface ProjectWorkspaceProps {
   project: ProjectData;
   initialCaptures: Record<string, PageCaptureMeta>;
   initialBoards: Board[];
+  initialScrollVideos: ScrollVideo[];
   selectionCount: number;
 }
 
-export function ProjectWorkspace({ project, initialCaptures, initialBoards, selectionCount }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({
+  project,
+  initialCaptures,
+  initialBoards,
+  initialScrollVideos,
+  selectionCount,
+}: ProjectWorkspaceProps) {
   const router = useRouter();
   const [pages, setPages] = useState<ApprovedPage[]>(project.approvedPages);
   const [captures, setCaptures] = useState<Record<string, PageCaptureMeta>>(initialCaptures);
@@ -65,6 +73,10 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
   const [boards, setBoards] = useState<Board[]>(initialBoards);
   const [openingCanvas, setOpeningCanvas] = useState(false);
   const [boardError, setBoardError] = useState<string | null>(null);
+
+  const [scrollVideos, setScrollVideos] = useState<ScrollVideo[]>(initialScrollVideos);
+  const [creatingScrollVideo, setCreatingScrollVideo] = useState(false);
+  const [scrollVideoError, setScrollVideoError] = useState<string | null>(null);
 
   const [assistedSetupAt, setAssistedSetupAt] = useState(project.assistedSetupAt);
   const [assistedSetupActive, setAssistedSetupActive] = useState(false);
@@ -448,6 +460,41 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
     }
   }
 
+  async function handleCreateScrollVideo() {
+    if (selectionCount === 0) {
+      setScrollVideoError("Crop at least one screenshot (above) before creating a scroll video.");
+      return;
+    }
+    setScrollVideoError(null);
+    setCreatingScrollVideo(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/videos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `Scroll video ${scrollVideos.length + 1}` }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not create that scroll video.");
+      router.push(`/projects/${project.id}/videos/${data.video.id}`);
+    } catch (err) {
+      setScrollVideoError(err instanceof Error ? err.message : "Could not create that scroll video.");
+      setCreatingScrollVideo(false);
+    }
+  }
+
+  async function handleDeleteScrollVideo(videoId: string, name: string) {
+    if (!window.confirm(`Delete "${name}"? This can't be undone.`)) return;
+    setScrollVideoError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/videos/${videoId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not delete that scroll video.");
+      setScrollVideos((prev) => prev.filter((v) => v.id !== videoId));
+    } catch (err) {
+      setScrollVideoError(err instanceof Error ? err.message : "Could not delete that scroll video.");
+    }
+  }
+
   async function handleDuplicateBoard(boardId: string) {
     setBoardError(null);
     try {
@@ -782,6 +829,72 @@ export function ProjectWorkspace({ project, initialCaptures, initialBoards, sele
                     </button>
                     <button
                       onClick={() => handleDeleteBoard(board.id, board.name)}
+                      className="ml-auto text-red-400/90 hover:text-red-300"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+              Scroll videos ({scrollVideos.length})
+            </h2>
+            <button
+              onClick={handleCreateScrollVideo}
+              disabled={creatingScrollVideo}
+              className="bg-gradient-accent glow-accent rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+            >
+              {creatingScrollVideo ? "Creating…" : "+ New scroll video"}
+            </button>
+          </div>
+          <p className="text-sm text-slate-400">
+            Pick a sequence of cropped screenshots and export a smooth scrolling MP4 — a continuous scroll through
+            each one, with a transition at every page change.
+          </p>
+
+          {scrollVideoError && (
+            <div className="rounded-lg border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">
+              {scrollVideoError}
+            </div>
+          )}
+
+          {scrollVideos.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-800 px-6 py-8 text-center text-sm text-slate-400">
+              No scroll videos yet — click &quot;+ New scroll video&quot; to create your first one.
+            </p>
+          ) : (
+            <ul className="grid gap-4 sm:grid-cols-2">
+              {scrollVideos.map((video) => (
+                <li
+                  key={video.id}
+                  className="group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40 p-5 transition hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-xl hover:shadow-indigo-950/40"
+                >
+                  <div className={`absolute inset-x-0 top-0 h-1 bg-linear-to-r ${accentFor(video.id)}`} />
+
+                  <div className="min-w-0">
+                    <Link
+                      href={`/projects/${project.id}/videos/${video.id}`}
+                      className="block truncate text-base font-semibold text-slate-100 hover:text-indigo-300"
+                    >
+                      {video.name}
+                    </Link>
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      {video.clips.length} clip{video.clips.length === 1 ? "" : "s"} · {video.fps}fps · {video.status}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-4 border-t border-slate-800/80 pt-3 text-xs">
+                    <Link href={`/projects/${project.id}/videos/${video.id}`} className="text-indigo-400 hover:text-indigo-300">
+                      Open
+                    </Link>
+                    <button
+                      onClick={() => handleDeleteScrollVideo(video.id, video.name)}
                       className="ml-auto text-red-400/90 hover:text-red-300"
                     >
                       Delete
