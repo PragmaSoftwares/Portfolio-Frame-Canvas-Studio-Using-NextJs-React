@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.15.0] - 2026-10-28
+
+### Added
+
+- The board editor's screenshot list now includes each page's original full-page screenshots (automated captures and manual uploads), shown first for each page and labelled like "Desktop Original". Drag one onto the canvas like any crop — it gets the matching device frame, and the vertical-position control chooses which part of the page shows. Recapturing or re-uploading a page updates it on existing boards.
+- The screenshot search box now also matches the page URL.
+
 ## [1.14.1] - 2026-10-28
 
 ### Fixed

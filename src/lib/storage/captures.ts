@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { projectCaptureMetaDir, assertSafeSlug, assertSafeId } from "./paths";
+import { projectCaptureMetaDir, projectCaptureDeviceDir, assertSafeSlug, assertSafeId, type CaptureDevice } from "./paths";
 import type { PageCaptureMeta } from "@/types/capture";
 import type { ApprovedPage } from "@/types/project";
 
@@ -62,6 +62,63 @@ export async function readPageCaptureMeta(projectId: string, pageSlug: string): 
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
   }
+}
+
+/** One full-page screenshot (automated capture or manual upload) for one page + device. */
+export interface OriginalScreenshot {
+  pageSlug: string;
+  pageLabel: string;
+  device: CaptureDevice;
+  filename: string; // within captures/<device>
+  uploaded: boolean;
+  // Pixel size, read from the PNG header — 0 for JPG/WebP uploads, where
+  // callers fall back to the box's own shape.
+  width: number;
+  height: number;
+}
+
+async function pngSize(file: string): Promise<{ width: number; height: number }> {
+  try {
+    const handle = await fs.open(file, "r");
+    try {
+      const buf = Buffer.alloc(24);
+      await handle.read(buf, 0, 24, 0);
+      if (buf.readUInt32BE(0) === 0x89504e47) return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+    } finally {
+      await handle.close();
+    }
+  } catch {
+    // Missing/unreadable file — treat as unknown size.
+  }
+  return { width: 0, height: 0 };
+}
+
+const ORIGINAL_DEVICES: CaptureDevice[] = ["desktop", "laptop", "tablet", "mobile"];
+
+// Every full-page screenshot currently on disk for a project, so the canvas
+// editor can show the uncropped source images next to the crops made from them.
+export async function listOriginalScreenshots(
+  projectId: string,
+  approvedPages: ApprovedPage[]
+): Promise<OriginalScreenshot[]> {
+  const all: OriginalScreenshot[] = [];
+  for (const page of approvedPages) {
+    const meta = await readPageCaptureMeta(projectId, page.slug);
+    if (!meta?.images) continue;
+    for (const device of ORIGINAL_DEVICES) {
+      const image = meta.images[device];
+      if (!image?.fullPage) continue;
+      all.push({
+        pageSlug: page.slug,
+        pageLabel: page.label,
+        device,
+        filename: image.fullPage,
+        uploaded: Boolean(image.uploaded),
+        ...(await pngSize(path.join(projectCaptureDeviceDir(projectId, device), image.fullPage))),
+      });
+    }
+  }
+  return all;
 }
 
 // A page counts as "captured" once its capture meta status is "ready" —

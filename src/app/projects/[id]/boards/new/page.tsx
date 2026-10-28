@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { readProject } from "@/lib/storage/projects";
 import { draftBoard } from "@/lib/storage/boards";
 import { listAllSelections } from "@/lib/storage/review";
+import { listOriginalScreenshots } from "@/lib/storage/captures";
 import { listBackgroundImages } from "@/lib/storage/backgroundImages";
 import { listCustomFrames } from "@/lib/storage/customFrames";
 import { listBuiltinFrameOverrides } from "@/lib/storage/builtinFrameOverrides";
@@ -27,6 +28,7 @@ export default async function NewBoardPage({ params }: NewBoardPageProps) {
 
   const board = await draftBoard(id);
   const selections = await listAllSelections(id, project.approvedPages);
+  const originals = await listOriginalScreenshots(id, project.approvedPages);
   const backgroundImages = await listBackgroundImages();
   const customFrames = await listCustomFrames();
   const builtinFrameOverrides = await listBuiltinFrameOverrides();
@@ -39,6 +41,8 @@ export default async function NewBoardPage({ params }: NewBoardPageProps) {
       board={board}
       isNewBoard
       selections={selections}
+      originals={originals}
+      pageUrls={Object.fromEntries(project.approvedPages.map((p) => [p.slug, p.url]))}
       backgroundImages={backgroundImages}
       customFrames={customFrames}
       builtinFrameOverrides={builtinFrameOverrides}

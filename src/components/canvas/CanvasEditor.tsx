@@ -34,6 +34,8 @@ import type {
 import type { BackgroundImage } from "@/types/backgroundImage";
 import type { CustomFrame, FrameScreenQuad } from "@/types/frame";
 import type { SelectionWithPage } from "@/lib/storage/review";
+import type { OriginalScreenshot } from "@/lib/storage/captures";
+import { originalSelectionId, parseOriginalSelectionId } from "@/lib/board/originals";
 
 interface CanvasEditorProps {
   projectId: string;
@@ -45,6 +47,11 @@ interface CanvasEditorProps {
   // existing board, then swaps the URL to the real id.
   isNewBoard?: boolean;
   selections: SelectionWithPage[];
+  // The uncropped full-page captures/uploads the crops came from — listed in
+  // the sidebar's Originals tab and placeable on the canvas like a crop.
+  originals: OriginalScreenshot[];
+  // page slug -> its URL, in the project's page order; lets the screenshot search match by URL.
+  pageUrls: Record<string, string>;
   backgroundImages: BackgroundImage[];
   customFrames: CustomFrame[];
   // Per-variant screen-corner corrections for the 4 built-in device frames
@@ -92,8 +99,13 @@ const VERTICAL_ALIGN_OPTIONS: VerticalAlign[] = ["top", "middle", "bottom"];
 const DEFAULT_TEXT_WIDTH = 480;
 const DEFAULT_TEXT_HEIGHT = 100;
 
-function mediaSrc(projectId: string, filename: string): string {
-  return `/api/media/projects/${projectId}/captures/selections/${filename}`;
+// A crop lives under captures/selections; an "original" (virtual selection, see
+// lib/board/originals.ts) is the full-page file under captures/<device>.
+function selectionSrc(projectId: string, s: SelectionWithPage): string {
+  const original = parseOriginalSelectionId(s.id);
+  return original
+    ? `/api/media/projects/${projectId}/captures/${original.device}/${s.filename}`
+    : `/api/media/projects/${projectId}/captures/selections/${s.filename}`;
 }
 
 function backgroundImageSrc(filename: string): string {
@@ -241,6 +253,8 @@ export function CanvasEditor({
   board: initialBoard,
   isNewBoard: initialIsNewBoard,
   selections,
+  originals,
+  pageUrls,
   backgroundImages: initialBackgroundImages,
   customFrames: initialCustomFrames,
   builtinFrameOverrides: initialBuiltinFrameOverrides,
@@ -319,17 +333,43 @@ export function CanvasEditor({
 
   const editorWidth = canvasWidth * EDITOR_SCALE;
   const editorHeight = canvasHeight * EDITOR_SCALE;
-  const selectionById = new Map(selections.map((s) => [s.id, s]));
+  const originalSelections: SelectionWithPage[] = originals.map((o) => ({
+    id: originalSelectionId(o.device, o.pageSlug),
+    pageSlug: o.pageSlug,
+    pageLabel: o.pageLabel,
+    label: `${BUILTIN_FRAME_LABELS[o.device]} Original${o.uploaded ? " (uploaded)" : ""}`,
+    sourceDevice: o.device,
+    cropRect: { x: 0, y: 0, width: o.width, height: o.height },
+    filename: o.filename,
+    width: o.width,
+    height: o.height,
+    createdAt: "",
+  }));
+  // One list: for each page, its original full-page screenshots first, then
+  // the crops made from it. Pages follow the project's own page order.
+  const pageSlugOrder = Object.keys(pageUrls);
+  const pageRank = (slug: string) => {
+    const i = pageSlugOrder.indexOf(slug);
+    return i < 0 ? pageSlugOrder.length : i;
+  };
+  const allSelections: SelectionWithPage[] = [
+    ...originalSelections.map((s) => ({ s, original: 0 })),
+    ...selections.map((s) => ({ s, original: 1 })),
+  ]
+    .sort((x, y) => pageRank(x.s.pageSlug) - pageRank(y.s.pageSlug) || x.original - y.original)
+    .map((x) => x.s);
+  const selectionById = new Map(allSelections.map((s) => [s.id, s]));
   const selectedBackgroundImage = backgroundImageId ? backgroundImages.find((img) => img.id === backgroundImageId) : null;
-  const pageOptions = Array.from(new Map(selections.map((s) => [s.pageSlug, s.pageLabel])).entries());
+  const pageOptions = Array.from(new Map(allSelections.map((s) => [s.pageSlug, s.pageLabel])).entries());
   const selectionSearchQuery = selectionSearch.trim().toLowerCase();
-  const visibleSelections = selections
+  const visibleSelections = allSelections
     .filter((s) => pageFilter === "all" || s.pageSlug === pageFilter)
     .filter(
       (s) =>
         selectionSearchQuery.length === 0 ||
         s.label.toLowerCase().includes(selectionSearchQuery) ||
-        s.pageLabel.toLowerCase().includes(selectionSearchQuery)
+        s.pageLabel.toLowerCase().includes(selectionSearchQuery) ||
+        (pageUrls[s.pageSlug] ?? "").toLowerCase().includes(selectionSearchQuery)
     );
 
   function markDirty() {
@@ -1262,14 +1302,14 @@ export function CanvasEditor({
           </div>
 
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Cropped screenshots — drag onto the canvas
+            Screenshots — drag onto the canvas
           </h2>
-          {selections.length > 0 && (
+          {allSelections.length > 0 && (
             <input
               type="text"
               value={selectionSearch}
               onChange={(e) => setSelectionSearch(e.target.value)}
-              placeholder="Search screenshots by name…"
+              placeholder="Search by name or page URL…"
               className="mb-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs outline-none placeholder:text-slate-500 focus:border-indigo-500"
             />
           )}
@@ -1287,9 +1327,9 @@ export function CanvasEditor({
               ))}
             </select>
           )}
-          {selections.length === 0 ? (
+          {allSelections.length === 0 ? (
             <p className="text-sm text-slate-400">
-              No cropped sections yet.{" "}
+              No screenshots yet.{" "}
               <Link href={`/projects/${projectId}/review`} onClick={confirmLeaveIfDirty} className="text-indigo-400 hover:text-indigo-300">
                 Go crop some →
               </Link>
@@ -1309,7 +1349,7 @@ export function CanvasEditor({
                       e.dataTransfer.setData("application/json", JSON.stringify({ kind: "screenshot", selectionId: s.id }));
                     }}
                     className="group cursor-grab space-y-1 rounded-lg border border-slate-800 p-2 hover:border-slate-600"
-                    title={`${s.pageLabel} — ${s.label}`}
+                    title={`${s.pageLabel} — ${s.label}${pageUrls[s.pageSlug] ? ` — ${pageUrls[s.pageSlug]}` : ""}`}
                   >
                     <div style={{ position: "relative", height: frameOuterHeight(frame, thumbWidth) }}>
                       <ZoomButton onClick={() => setZoomSelectionId(s.id)} />
@@ -1317,8 +1357,8 @@ export function CanvasEditor({
                           derives it straight from the capture device, never "none" or "custom". */}
                       <DeviceFrame
                         variant={frame}
-                        src={mediaSrc(projectId, s.filename)}
-                        crop={{ ...DEFAULT_CROP, fit: defaultContentFit(frame) }}
+                        src={selectionSrc(projectId, s)}
+                        crop={{ ...DEFAULT_CROP, y: parseOriginalSelectionId(s.id) ? 0 : DEFAULT_CROP.y, fit: defaultContentFit(frame) }}
                         width={thumbWidth}
                         screenQuadOverride={builtinFrameOverrides[frame]}
                         style={{ left: 0, top: 0 }}
@@ -1423,7 +1463,7 @@ export function CanvasEditor({
                     ) : (
                       (() => {
                         const selection = selectionById.get(item.selectionId);
-                        const src = selection ? mediaSrc(projectId, selection.filename) : null;
+                        const src = selection ? selectionSrc(projectId, selection) : null;
                         const crop = {
                           ...DEFAULT_CROP,
                           fit: item.contentFit ?? defaultContentFit(item.frame),
@@ -1961,11 +2001,11 @@ export function CanvasEditor({
 
       {zoomSelectionId &&
         (() => {
-          const zoomed = selections.find((s) => s.id === zoomSelectionId);
+          const zoomed = selectionById.get(zoomSelectionId);
           if (!zoomed) return null;
           return (
             <ImageZoomOverlay
-              src={mediaSrc(projectId, zoomed.filename)}
+              src={selectionSrc(projectId, zoomed)}
               alt={`${zoomed.pageLabel} — ${zoomed.label}`}
               onClose={() => setZoomSelectionId(null)}
             />

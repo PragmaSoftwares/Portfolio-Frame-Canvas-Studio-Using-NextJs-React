@@ -1,5 +1,7 @@
 import { readBoard } from "@/lib/storage/boards";
 import { readPageSelections } from "@/lib/storage/review";
+import { readPageCaptureMeta } from "@/lib/storage/captures";
+import { parseOriginalSelectionId } from "@/lib/board/originals";
 import { readBackgroundImage } from "@/lib/storage/backgroundImages";
 import { readSettings } from "@/lib/storage/settings";
 import { listCustomFrames } from "@/lib/storage/customFrames";
@@ -53,6 +55,17 @@ export default async function RenderBoardPage({ params }: RenderBoardPageProps) 
   const resolvedItems = await Promise.all(
     board.items.map(async (item) => {
       if (item.kind === "text") return { kind: "text" as const, item };
+      const original = parseOriginalSelectionId(item.selectionId);
+      if (original) {
+        const meta = await readPageCaptureMeta(projectId, original.pageSlug);
+        const file = meta?.images?.[original.device]?.fullPage;
+        if (!file) return null;
+        return {
+          kind: "screenshot" as const,
+          item,
+          src: `/api/media/projects/${projectId}/captures/${original.device}/${file}`,
+        };
+      }
       const selections = await selectionsFor(item.pageSlug);
       const selection = selections.find((s) => s.id === item.selectionId);
       if (!selection) return null;
