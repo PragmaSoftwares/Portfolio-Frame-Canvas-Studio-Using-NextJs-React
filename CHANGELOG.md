@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`): MAJOR for breaking changes, MINOR for new features or improvements, PATCH for bug fixes. The current version is in [`package.json`](package.json).
 
+## [1.14.1] - 2026-10-28
+
+### Fixed
+
+- Clicking Open on a scroll video or board, or pressing Back to a project, no longer looks like nothing happened while the page loads — a loading indicator now appears immediately, so there is no need to click again.
+
 ## [1.14.0] - 2026-10-19
 
 ### Added
